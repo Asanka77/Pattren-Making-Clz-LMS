@@ -1,0 +1,893 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    font-family: 'Plus Jakarta Sans', 'Noto Sans Sinhala', sans-serif;
+    background-color: #0c090a;
+    color: #f4efe6;
+    overflow-x: hidden;
+  }
+
+  h1, h2, h3, .font-editorial {
+    font-family: 'Cinzel', 'Noto Sans Sinhala', serif;
+  }
+}
+
+.font-serif-luxury {
+  font-family: 'Cormorant Garamond', 'Noto Sans Sinhala', serif;
+}
+
+.font-sinhala {
+  font-family: 'Noto Sans Sinhala', sans-serif;
+}
+
+/* Luxury Gold & Champagne Luminous Gradients (Optimized Contrast for Dark & Light Backgrounds) */
+@keyframes goldShimmerSweep {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.gold-gradient-text,
+h1.gold-gradient-text,
+h2.gold-gradient-text,
+h3.gold-gradient-text,
+h4.gold-gradient-text,
+span.gold-gradient-text,
+p.gold-gradient-text {
+  /* Solid high-visibility gold fallback ensures text is never transparent or dark */
+  color: #f7e2a9 !important;
+  background: linear-gradient(
+    135deg,
+    #ffffff 0%,
+    #fff5d6 20%,
+    #f7e2a9 38%,
+    #dfb56c 55%,
+    #fdf6e2 75%,
+    #ffffff 90%,
+    #dfb56c 100%
+  ) !important;
+  background-size: 200% auto !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  /* CRITICAL: Never apply text-shadow to clipped transparent text as it blacks out glyphs in Chromium */
+  text-shadow: none !important;
+  animation: goldShimmerSweep 5s ease-in-out infinite !important;
+  /* Drop shadow filter creates radiant golden ambient halo around the letters without blacking them out */
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.95)) drop-shadow(0 0 16px rgba(223, 181, 108, 0.45)) !important;
+  display: inline-block;
+  will-change: background-position, filter;
+}
+
+/* ==========================================================================
+   HIGH CONTRAST TEXT SHADOW & LETTER ANIMATION SYSTEM
+   - White Letters -> Deep Crisp Black Shadow
+   - Black Letters -> Luminous White Shadow
+   - Letter Animations (Auto Floating & Breathing Shadows)
+   ========================================================================== */
+@keyframes letterFloatBlackShadow {
+  0%, 100% {
+    transform: translateY(0);
+    text-shadow: 
+      0 2px 4px rgba(0, 0, 0, 0.95),
+      0 4px 10px rgba(0, 0, 0, 0.85),
+      0 8px 18px rgba(0, 0, 0, 0.75),
+      1px 1px 2px #000000,
+      -1px -1px 2px #000000;
+  }
+  50% {
+    transform: translateY(-3px);
+    text-shadow: 
+      0 4px 8px rgba(0, 0, 0, 0.98),
+      0 8px 18px rgba(0, 0, 0, 0.9),
+      0 14px 26px rgba(0, 0, 0, 0.8),
+      0 0 14px rgba(223, 181, 108, 0.28),
+      1px 2px 3px #000000,
+      -1px -1px 2px #000000;
+  }
+}
+
+@keyframes letterFloatWhiteShadow {
+  0%, 100% {
+    transform: translateY(0);
+    text-shadow: 
+      0 1px 2px rgba(255, 255, 255, 0.95),
+      0 2px 6px rgba(255, 255, 255, 0.85),
+      0 0 12px rgba(255, 255, 255, 0.7),
+      1px 1px 1px #ffffff;
+  }
+  50% {
+    transform: translateY(-3px);
+    text-shadow: 
+      0 2px 4px rgba(255, 255, 255, 1),
+      0 4px 10px rgba(255, 255, 255, 0.9),
+      0 0 20px rgba(255, 255, 255, 0.85),
+      1px 1px 2px #ffffff;
+  }
+}
+
+@keyframes letterShimmerSweep {
+  0%, 100% {
+    filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.9));
+  }
+  50% {
+    filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.95)) drop-shadow(0 0 8px rgba(255, 255, 255, 0.3));
+  }
+}
+
+/* White Letters with Crisp Black Shadow */
+.text-white-shadow-black,
+.shadow-text-black {
+  color: #ffffff !important;
+  text-shadow: 
+    0 2px 4px rgba(0, 0, 0, 0.95),
+    0 4px 10px rgba(0, 0, 0, 0.85),
+    0 8px 18px rgba(0, 0, 0, 0.75),
+    1px 1px 2px #000000,
+    -1px -1px 2px #000000;
+}
+
+/* Black Letters with Glowing White Shadow */
+.text-black-shadow-white,
+.shadow-text-white {
+  color: #0c090a !important;
+  text-shadow: 
+    0 1px 2px rgba(255, 255, 255, 0.95),
+    0 2px 6px rgba(255, 255, 255, 0.85),
+    0 0 12px rgba(255, 255, 255, 0.7),
+    1px 1px 1px #ffffff,
+    -1px -1px 1px #ffffff;
+}
+
+/* Animated Letter Typography Classes */
+.letter-anim-white-black {
+  color: #ffffff !important;
+  display: inline-block;
+  animation: letterFloatBlackShadow 4s ease-in-out infinite;
+  will-change: transform, text-shadow;
+  letter-spacing: 0.02em;
+}
+
+.letter-anim-black-white {
+  color: #0c090a !important;
+  display: inline-block;
+  animation: letterFloatWhiteShadow 4s ease-in-out infinite;
+  will-change: transform, text-shadow;
+  letter-spacing: 0.02em;
+}
+
+.text-3d-white {
+  color: #ffffff !important;
+  text-shadow: 
+    0 2px 4px rgba(0, 0, 0, 0.95),
+    0 4px 10px rgba(0, 0, 0, 0.85),
+    0 8px 18px rgba(0, 0, 0, 0.75),
+    1px 1px 2px #000000,
+    -1px -1px 2px #000000;
+  letter-spacing: 0.02em;
+}
+
+.text-3d-white-auto {
+  color: #ffffff !important;
+  display: inline-block;
+  animation: letterFloatBlackShadow 4s ease-in-out infinite;
+  will-change: transform, text-shadow;
+  letter-spacing: 0.02em;
+}
+
+.text-3d-white-subtle {
+  color: #ffffff !important;
+  text-shadow: 
+    0 2px 4px rgba(0, 0, 0, 0.9),
+    0 4px 8px rgba(0, 0, 0, 0.75),
+    1px 1px 1px #000000;
+}
+
+/* Global Headings on dark backgrounds default to high-contrast clean shadow (excludes gradient-clipped text) */
+h1:not(html.light-theme *):not(.gold-gradient-text):not([class*="gold-gradient"]):not([class*="bg-clip-text"]),
+h2:not(html.light-theme *):not(.gold-gradient-text):not([class*="gold-gradient"]):not([class*="bg-clip-text"]),
+h3:not(html.light-theme *):not(.gold-gradient-text):not([class*="gold-gradient"]):not([class*="bg-clip-text"]),
+h4:not(html.light-theme *):not(.gold-gradient-text):not([class*="gold-gradient"]):not([class*="bg-clip-text"]) {
+  color: #f7f3eb;
+  text-shadow: 
+    0 2px 4px rgba(0, 0, 0, 0.95),
+    0 4px 10px rgba(0, 0, 0, 0.75),
+    0 8px 18px rgba(0, 0, 0, 0.55);
+  text-wrap: balance;
+}
+
+/* Light theme headings and black text default to clean white shadow */
+html.light-theme h1:not([data-bg="dark"] *):not(.gold-gradient-text),
+html.light-theme h2:not([data-bg="dark"] *):not(.gold-gradient-text),
+html.light-theme h3:not([data-bg="dark"] *):not(.gold-gradient-text),
+html.light-theme h4:not([data-bg="dark"] *):not(.gold-gradient-text) {
+  color: #171413;
+  text-shadow: 
+    0 1px 2px rgba(255, 255, 255, 0.9),
+    0 2px 5px rgba(255, 255, 255, 0.8),
+    0 0 10px rgba(255, 255, 255, 0.5);
+  text-wrap: balance;
+}
+
+/* Dedicated luxury heading animation with ambient gold breathing glow */
+.luxury-heading-anim {
+  display: inline-block;
+  animation: letterFloatBlackShadow 5s ease-in-out infinite;
+  will-change: transform, text-shadow;
+  letter-spacing: 0.025em;
+  text-wrap: balance;
+  transition: letter-spacing 0.3s ease, filter 0.3s ease;
+}
+
+.luxury-heading-anim:hover {
+  letter-spacing: 0.035em;
+  filter: drop-shadow(0 0 8px rgba(223, 181, 108, 0.3));
+}
+
+html.light-theme .luxury-heading-anim {
+  animation: letterFloatWhiteShadow 5s ease-in-out infinite;
+}
+
+/* Interactive letter lift effect on buttons and cards */
+.letter-hover-lift {
+  transition: transform 0.25s ease, text-shadow 0.25s ease;
+}
+.letter-hover-lift:hover {
+  transform: translateY(-2px);
+}
+
+.gold-border {
+  border-color: rgba(201, 154, 69, 0.28);
+}
+
+.gold-glow {
+  box-shadow: 0 0 35px -10px rgba(201, 154, 69, 0.22);
+}
+
+.burgundy-glow {
+  box-shadow: 0 0 45px -12px rgba(110, 19, 34, 0.4);
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+::-webkit-scrollbar-track {
+  background: #0c090a;
+}
+::-webkit-scrollbar-thumb {
+  background: #2a2223;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #c99a45;
+}
+
+/* ==========================================================================
+   3D TACTILE LUXURY BUTTONS (OPTIMIZED FOR MOBILE TOUCH & DESKTOP)
+   ========================================================================== */
+.btn-3d-gold {
+  position: relative;
+  background: linear-gradient(180deg, #f7e2a9 0%, #dfb56c 45%, #c99a45 100%);
+  color: #0c090a !important;
+  font-weight: 700;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.45);
+  box-shadow: 
+    0 4px 0 #966e24,
+    0 7px 16px rgba(201, 154, 69, 0.35);
+  border-radius: 4px;
+  transform: translateY(0);
+  transition: all 0.12s cubic-bezier(0.16, 1, 0.3, 1);
+  border-top: 1px solid rgba(255, 255, 255, 0.7);
+  border-left: 1px solid rgba(255, 255, 255, 0.3);
+  border-right: 1px solid rgba(0, 0, 0, 0.2);
+  border-bottom: 1px solid #7c581a;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn-3d-gold:hover {
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+  box-shadow: 
+    0 5px 0 #966e24,
+    0 9px 20px rgba(201, 154, 69, 0.45);
+}
+.btn-3d-gold:active {
+  transform: translateY(3px) !important;
+  box-shadow: 
+    0 1px 0 #966e24,
+    0 2px 6px rgba(201, 154, 69, 0.25) !important;
+}
+
+.btn-3d-burgundy {
+  position: relative;
+  background: linear-gradient(180deg, #701424 0%, #540d18 55%, #38070e 100%);
+  color: #f7e2a9 !important;
+  font-weight: 700;
+  box-shadow: 
+    0 4px 0 #1f0407,
+    0 7px 16px rgba(84, 13, 24, 0.4);
+  border-radius: 4px;
+  border-top: 1px solid rgba(223, 181, 108, 0.75);
+  border-left: 1px solid rgba(223, 181, 108, 0.4);
+  border-right: 1px solid rgba(0, 0, 0, 0.4);
+  border-bottom: 1px solid #140204;
+  transform: translateY(0);
+  transition: all 0.12s cubic-bezier(0.16, 1, 0.3, 1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn-3d-burgundy:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+  box-shadow: 
+    0 5px 0 #1f0407,
+    0 9px 20px rgba(84, 13, 24, 0.5);
+}
+.btn-3d-burgundy:active {
+  transform: translateY(3px) !important;
+  box-shadow: 
+    0 1px 0 #1f0407,
+    0 2px 6px rgba(84, 13, 24, 0.3) !important;
+}
+
+.btn-3d-secondary {
+  position: relative;
+  background: linear-gradient(180deg, #231b1d 0%, #171112 100%);
+  color: #f4efe6 !important;
+  border-top: 1px solid rgba(201, 154, 69, 0.5);
+  border-left: 1px solid rgba(201, 154, 69, 0.3);
+  border-right: 1px solid rgba(0, 0, 0, 0.3);
+  border-bottom: 1px solid #080607;
+  box-shadow: 
+    0 3px 0 #0b0809,
+    0 5px 12px rgba(0, 0, 0, 0.4);
+  border-radius: 4px;
+  transform: translateY(0);
+  transition: all 0.12s cubic-bezier(0.16, 1, 0.3, 1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn-3d-secondary:hover {
+  border-color: #dfb56c;
+  color: #f7e2a9 !important;
+  transform: translateY(-1px);
+  box-shadow: 
+    0 4px 0 #0b0809,
+    0 7px 16px rgba(201, 154, 69, 0.25);
+}
+.btn-3d-secondary:active {
+  transform: translateY(2px) !important;
+  box-shadow: 
+    0 1px 0 #0b0809,
+    0 2px 4px rgba(0, 0, 0, 0.3) !important;
+}
+
+.btn-3d-whatsapp {
+  position: relative;
+  background: linear-gradient(180deg, #2fe671 0%, #25D366 50%, #1cb855 100%);
+  color: #0c090a !important;
+  font-weight: 700;
+  box-shadow: 
+    0 4px 0 #117835,
+    0 7px 16px rgba(37, 211, 102, 0.4);
+  border-radius: 4px;
+  transform: translateY(0);
+  transition: all 0.12s ease-in-out;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.btn-3d-whatsapp:hover {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+  box-shadow: 
+    0 5px 0 #117835,
+    0 9px 20px rgba(37, 211, 102, 0.5);
+}
+.btn-3d-whatsapp:active {
+  transform: translateY(3px) !important;
+  box-shadow: 
+    0 1px 0 #117835,
+    0 2px 6px rgba(37, 211, 102, 0.25) !important;
+}
+
+/* ==========================================================================
+   LIGHT THEME CONTRAST SYSTEM (LUXURY IVORY & GOLD ATELIER)
+   Strict Contrast Rule:
+   - On light backgrounds: deep bark / dark text (#171413 / #594f47)
+   - On dark backgrounds: crisp white / light gold text (#ffffff / #f7e2a9)
+   ========================================================================== */
+html.light-theme, 
+html.light-theme body {
+  background-color: #f8f6f0 !important;
+  color: #171413 !important;
+}
+
+/* Light Background Containers */
+html.light-theme .bg-\[\#0c090a\],
+html.light-theme .bg-\[\#0a0708\],
+html.light-theme .bg-\[\#0e0a0b\],
+html.light-theme .bg-\[\#090607\] {
+  background-color: #f8f6f0 !important;
+}
+
+html.light-theme .bg-\[\#141011\],
+html.light-theme .bg-\[\#151011\],
+html.light-theme .bg-\[\#161112\] {
+  background-color: #ffffff !important;
+  box-shadow: 0 4px 20px -2px rgba(184, 134, 11, 0.08);
+}
+
+html.light-theme .bg-\[\#1c1214\],
+html.light-theme .bg-\[\#1c1416\],
+html.light-theme .bg-\[\#1a1214\],
+html.light-theme .bg-\[\#241317\] {
+  background-color: #f2ede2 !important;
+}
+
+html.light-theme .bg-black\/40,
+html.light-theme .bg-black\/50,
+html.light-theme .bg-black\/60,
+html.light-theme .bg-black\/70,
+html.light-theme .bg-black\/75,
+html.light-theme .bg-black\/80 {
+  background-color: rgba(248, 244, 236, 0.92) !important;
+}
+
+/* Headings and body text on light backgrounds become bark/dark */
+html.light-theme h1:not([data-bg="dark"] *):not([data-bg="dark"]):not(.gold-gradient-text),
+html.light-theme h2:not([data-bg="dark"] *):not([data-bg="dark"]):not(.gold-gradient-text),
+html.light-theme h3:not([data-bg="dark"] *):not([data-bg="dark"]):not(.gold-gradient-text),
+html.light-theme h4:not([data-bg="dark"] *):not([data-bg="dark"]):not(.gold-gradient-text) {
+  color: #171413;
+}
+
+html.light-theme .text-\[\#f7f3eb\]:not([data-bg="dark"] *):not(.btn-3d-burgundy *):not(.bg-\[\#540d18\] *):not(.bg-\[\#38070e\] *):not(.bg-black *):not(.bg-\[\#0c090a\] *):not(.bg-\[\#141011\] *):not(#certificate *):not(#patterns *):not(#brandbook *),
+html.light-theme .text-\[\#f4efe6\]:not([data-bg="dark"] *):not(.btn-3d-burgundy *):not(.bg-\[\#540d18\] *):not(.bg-\[\#38070e\] *):not(.bg-black *):not(.bg-\[\#0c090a\] *):not(.bg-\[\#141011\] *):not(#certificate *):not(#patterns *):not(#brandbook *),
+html.light-theme .text-\[\#eae3d2\]:not([data-bg="dark"] *):not(.btn-3d-burgundy *):not(.bg-\[\#540d18\] *):not(.bg-\[\#38070e\] *):not(.bg-black *):not(.bg-\[\#0c090a\] *):not(.bg-\[\#141011\] *):not(#certificate *):not(#patterns *):not(#brandbook *) {
+  color: #171413 !important;
+}
+
+html.light-theme .text-\[\#d5cfc4\]:not([data-bg="dark"] *):not(.btn-3d-burgundy *):not(.bg-\[\#540d18\] *):not(.bg-\[\#38070e\] *):not(.bg-black *):not(.bg-\[\#0c090a\] *):not(.bg-\[\#141011\] *):not(#certificate *):not(#patterns *):not(#brandbook *),
+html.light-theme .text-\[\#b8afa2\]:not([data-bg="dark"] *):not(.btn-3d-burgundy *):not(.bg-\[\#540d18\] *):not(.bg-\[\#38070e\] *):not(.bg-black *):not(.bg-\[\#0c090a\] *):not(.bg-\[\#141011\] *):not(#certificate *):not(#patterns *):not(#brandbook *),
+html.light-theme .text-\[\#a89f91\]:not([data-bg="dark"] *):not(.btn-3d-burgundy *):not(.bg-\[\#540d18\] *):not(.bg-\[\#38070e\] *):not(.bg-black *):not(.bg-\[\#0c090a\] *):not(.bg-\[\#141011\] *):not(#certificate *):not(#patterns *):not(#brandbook *) {
+  color: #453c35 !important;
+}
+
+html.light-theme .text-\[\#f7e2a9\]:not([data-bg="dark"] *):not(.btn-3d-burgundy *):not(.bg-\[\#540d18\] *):not(.bg-\[\#38070e\] *):not(.bg-black *):not(.bg-\[\#0c090a\] *):not(.bg-\[\#141011\] *):not(#certificate *):not(#patterns *):not(#brandbook *) {
+  color: #8c6114 !important;
+}
+
+html.light-theme .border-white\/5,
+html.light-theme .border-white\/10,
+html.light-theme .border-white\/15,
+html.light-theme .border-white\/20 {
+  border-color: rgba(184, 134, 11, 0.22) !important;
+}
+
+/* ==========================================================================
+   CRITICAL CONTRAST RULE:
+   WHEREVER THERE IS A DARK BACKGROUND (EVEN IN LIGHT MODE):
+   TEXT MUST ALWAYS BE CRISP WHITE / LIGHT GOLD / RADIANT CHAMPAGNE!
+   ========================================================================== */
+html.light-theme .btn-3d-burgundy,
+html.light-theme .btn-3d-burgundy *,
+html.light-theme .bg-\[\#540d18\],
+html.light-theme .bg-\[\#540d18\] *,
+html.light-theme .bg-\[\#38070e\],
+html.light-theme .bg-\[\#38070e\] *,
+html.light-theme .bg-\[\#701424\],
+html.light-theme .bg-\[\#701424\] *,
+html.light-theme .bg-black,
+html.light-theme .bg-black *,
+html.light-theme [data-bg="dark"],
+html.light-theme [data-bg="dark"] *,
+html.light-theme #certificate,
+html.light-theme #certificate *,
+html.light-theme #patterns,
+html.light-theme #patterns *,
+html.light-theme #brandbook,
+html.light-theme #brandbook *,
+html.light-theme .bg-\[\#0c090a\],
+html.light-theme .bg-\[\#0c090a\] *,
+html.light-theme .bg-\[\#0a0708\],
+html.light-theme .bg-\[\#0a0708\] *,
+html.light-theme .bg-\[\#100b0d\],
+html.light-theme .bg-\[\#100b0d\] *,
+html.light-theme .bg-\[\#141011\],
+html.light-theme .bg-\[\#141011\] *,
+html.light-theme .bg-\[\#120a0d\],
+html.light-theme .bg-\[\#120a0d\] *,
+html.light-theme .bg-\[\#1e1316\],
+html.light-theme .bg-\[\#1e1316\] * {
+  color: #f7f3eb !important;
+}
+
+/* Ensure Gold Accents inside dark containers remain vibrant gold */
+html.light-theme [data-bg="dark"] .text-\[\#f7e2a9\],
+html.light-theme #certificate .text-\[\#f7e2a9\],
+html.light-theme #patterns .text-\[\#f7e2a9\],
+html.light-theme #brandbook .text-\[\#f7e2a9\],
+html.light-theme .bg-\[\#540d18\] .text-\[\#f7e2a9\],
+html.light-theme .bg-\[\#38070e\] .text-\[\#f7e2a9\],
+html.light-theme .btn-3d-burgundy .text-\[\#f7e2a9\] {
+  color: #f7e2a9 !important;
+}
+
+html.light-theme [data-bg="dark"] .text-\[\#dfb56c\],
+html.light-theme #certificate .text-\[\#dfb56c\],
+html.light-theme #patterns .text-\[\#dfb56c\],
+html.light-theme #brandbook .text-\[\#dfb56c\],
+html.light-theme .bg-\[\#540d18\] .text-\[\#dfb56c\],
+html.light-theme .bg-\[\#38070e\] .text-\[\#dfb56c\],
+html.light-theme .btn-3d-burgundy .text-\[\#dfb56c\] {
+  color: #dfb56c !important;
+}
+
+/* Headings inside dark containers always stay pure white/gold */
+html.light-theme [data-bg="dark"] h1,
+html.light-theme [data-bg="dark"] h2,
+html.light-theme [data-bg="dark"] h3,
+html.light-theme [data-bg="dark"] h4,
+html.light-theme #certificate h1,
+html.light-theme #certificate h2,
+html.light-theme #certificate h3,
+html.light-theme #certificate h4,
+html.light-theme #patterns h1,
+html.light-theme #patterns h2,
+html.light-theme #patterns h3,
+html.light-theme #patterns h4,
+html.light-theme #brandbook h1,
+html.light-theme #brandbook h2,
+html.light-theme #brandbook h3,
+html.light-theme #brandbook h4 {
+  color: #f7f3eb !important;
+}
+
+/* Gold Gradient Text is always luminous gold in ALL themes & contexts */
+.gold-gradient-text,
+h1.gold-gradient-text,
+h2.gold-gradient-text,
+h3.gold-gradient-text,
+html.light-theme .gold-gradient-text,
+html.light-theme h1.gold-gradient-text,
+html.light-theme h2.gold-gradient-text,
+html.light-theme h3.gold-gradient-text {
+  color: #f7e2a9 !important;
+  -webkit-text-fill-color: transparent !important;
+  background: linear-gradient(
+    135deg,
+    #ffffff 0%,
+    #fff5d6 20%,
+    #f7e2a9 38%,
+    #dfb56c 55%,
+    #fdf6e2 75%,
+    #ffffff 90%,
+    #dfb56c 100%
+  ) !important;
+  background-size: 200% auto !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  text-shadow: none !important;
+  filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.95)) drop-shadow(0 0 16px rgba(223, 181, 108, 0.45)) !important;
+}
+
+html.light-theme input,
+html.light-theme select,
+html.light-theme textarea {
+  color: #171413 !important;
+  background-color: #ffffff !important;
+  border-color: #d1c7b2 !important;
+}
+
+html.light-theme input::placeholder,
+html.light-theme textarea::placeholder {
+  color: #8c8175 !important;
+}
+
+html.light-theme .btn-3d-secondary {
+  background: linear-gradient(180deg, #ffffff 0%, #ede6d8 100%);
+  color: #2b221d !important;
+  border-color: #dfb56c;
+  box-shadow: 0 3px 0 #c2b59f, 0 4px 10px rgba(0, 0, 0, 0.08);
+}
+
+/* ==========================================================================
+   DYNAMIC BACKGROUND IMAGES & SECTION GAP SYSTEM
+   - Allows full page background images uploaded from backend to shine through
+   - Translucent frosted glass effect on section containers
+   - Visible gap spacing between sections ("hidas atara")
+   ========================================================================== */
+.has-page-bg {
+  background-color: transparent !important;
+}
+
+.has-page-bg body {
+  background-color: transparent !important;
+}
+
+/* Make inner section background colors transparent so the SectionReveal glass wrapper and full page background show through */
+.has-page-bg main section:not([data-opaque="true"]),
+[data-has-section-bg="true"] section:not([data-opaque="true"]) {
+  background-color: transparent !important;
+}
+
+[data-has-section-bg="true"] > div {
+  background-color: transparent;
+}
+
+/* Translucent Frosted Glass Section Card Styling */
+.section-translucent-card {
+  background-color: rgba(12, 9, 10, 0.72) !important;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(201, 154, 69, 0.22);
+}
+
+/* ==========================================================================
+   PREMIUM DARK LUXURY SWIPER & 3D PARALLAX FRAMEWORK
+   - Bespoke gold luxury pagination indicators
+   - 3D perspective card tilt with dynamic depth
+   - Smooth transform transitions across breakpoints
+   ========================================================================== */
+.swiper-luxury {
+  padding-bottom: 2.75rem !important;
+  overflow: visible !important;
+}
+
+.swiper-luxury .swiper-pagination {
+  bottom: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.5rem !important;
+}
+
+.swiper-luxury .swiper-pagination-bullet {
+  width: 8px !important;
+  height: 8px !important;
+  border-radius: 9999px !important;
+  background-color: rgba(223, 181, 108, 0.3) !important;
+  border: 1px solid rgba(223, 181, 108, 0.4) !important;
+  opacity: 1 !important;
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  cursor: pointer !important;
+}
+
+.swiper-luxury .swiper-pagination-bullet:hover {
+  background-color: rgba(223, 181, 108, 0.6) !important;
+  transform: scale(1.2) !important;
+}
+
+.swiper-luxury .swiper-pagination-bullet-active {
+  width: 28px !important;
+  border-radius: 9999px !important;
+  background: linear-gradient(90deg, #dfb56c, #f7e2a9, #dfb56c) !important;
+  box-shadow: 0 0 14px rgba(223, 181, 108, 0.55) !important;
+  border-color: #f7e2a9 !important;
+}
+
+.swiper-luxury .swiper-button-next,
+.swiper-luxury .swiper-button-prev {
+  width: 40px !important;
+  height: 40px !important;
+  border-radius: 9999px !important;
+  background-color: rgba(20, 16, 17, 0.85) !important;
+  backdrop-filter: blur(8px) !important;
+  border: 1px solid rgba(223, 181, 108, 0.35) !important;
+  color: #f7e2a9 !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6) !important;
+  transition: all 0.3s ease !important;
+}
+
+.swiper-luxury .swiper-button-next:hover,
+.swiper-luxury .swiper-button-prev:hover {
+  background-color: #540d18 !important;
+  border-color: #dfb56c !important;
+  color: #ffffff !important;
+  transform: scale(1.08) !important;
+  box-shadow: 0 10px 28px rgba(223, 181, 108, 0.25) !important;
+}
+
+.swiper-luxury .swiper-button-next::after,
+.swiper-luxury .swiper-button-prev::after {
+  font-size: 14px !important;
+  font-weight: bold !important;
+}
+
+.swiper-luxury .swiper-button-disabled {
+  opacity: 0.25 !important;
+  pointer-events: none !important;
+}
+
+/* 3D Parallax Card Layering & Depth */
+.parallax-card-stage {
+  perspective: 1200px;
+  transform-style: preserve-3d;
+}
+
+.parallax-card-inner {
+  transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1), box-shadow 0.3s ease;
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+
+.parallax-layer-back {
+  transform: translateZ(0);
+}
+
+.parallax-layer-mid {
+  transform: translateZ(20px);
+}
+
+.parallax-layer-front {
+  transform: translateZ(38px);
+}
+
+/* ==========================================================================
+   HERO 3D FLOATING & PULSING BUTTON SYSTEM
+   Continuous smooth levitation, scale breathing, and radiant depth lighting
+   ========================================================================== */
+@keyframes hero3dFloatPulseGold {
+  0%, 100% {
+    transform: translateY(0px) scale(1);
+    box-shadow: 
+      0 4px 0 #966e24,
+      0 6px 14px rgba(201, 154, 69, 0.35);
+  }
+  50% {
+    transform: translateY(-5px) scale(1.03);
+    box-shadow: 
+      0 8px 0 #966e24,
+      0 14px 26px rgba(201, 154, 69, 0.55),
+      0 0 22px rgba(223, 181, 108, 0.45);
+  }
+}
+
+@keyframes hero3dFloatPulseBurgundy {
+  0%, 100% {
+    transform: translateY(0px) scale(1);
+    box-shadow: 
+      0 4px 0 #1f0407,
+      0 6px 14px rgba(84, 13, 24, 0.45);
+  }
+  50% {
+    transform: translateY(-5px) scale(1.03);
+    box-shadow: 
+      0 8px 0 #1f0407,
+      0 14px 26px rgba(84, 13, 24, 0.65),
+      0 0 24px rgba(138, 28, 48, 0.5);
+  }
+}
+
+@keyframes hero3dFloatPulseSecondary {
+  0%, 100% {
+    transform: translateY(0px) scale(1);
+    box-shadow: 
+      0 4px 0 #0f0b0c,
+      0 6px 14px rgba(0, 0, 0, 0.6);
+  }
+  50% {
+    transform: translateY(-4px) scale(1.025);
+    box-shadow: 
+      0 7px 0 #0f0b0c,
+      0 12px 24px rgba(0, 0, 0, 0.8),
+      0 0 16px rgba(223, 181, 108, 0.25);
+  }
+}
+
+.hero-btn-float-gold {
+  animation: hero3dFloatPulseGold 3.4s ease-in-out infinite;
+  will-change: transform, box-shadow;
+}
+
+.hero-btn-float-burgundy {
+  animation: hero3dFloatPulseBurgundy 3.8s ease-in-out infinite 0.6s;
+  will-change: transform, box-shadow;
+}
+
+.hero-btn-float-secondary {
+  animation: hero3dFloatPulseSecondary 4.2s ease-in-out infinite 1.2s;
+  will-change: transform, box-shadow;
+}
+
+/* Pause levitation during active press for crisp tactile feedback */
+.hero-btn-float-gold:active,
+.hero-btn-float-burgundy:active,
+.hero-btn-float-secondary:active {
+  animation: none !important;
+  transform: translateY(3px) !important;
+}
+
+/* ==========================================================================
+   CUSTOM LUXURY SCROLLBARS & MOMENTUM SCROLLING
+   Obsidian rail with warm gold & burgundy polished thumb
+   ========================================================================== */
+.luxury-scrollbar,
+.luxury-scrollbar-horizontal,
+.luxury-scrollbar-vertical {
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+
+.luxury-scrollbar::-webkit-scrollbar,
+.luxury-scrollbar-horizontal::-webkit-scrollbar,
+.luxury-scrollbar-vertical::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.luxury-scrollbar::-webkit-scrollbar-track,
+.luxury-scrollbar-horizontal::-webkit-scrollbar-track,
+.luxury-scrollbar-vertical::-webkit-scrollbar-track {
+  background: rgba(12, 9, 10, 0.9);
+  border-radius: 9999px;
+  border: 1px solid rgba(223, 181, 108, 0.12);
+}
+
+.luxury-scrollbar::-webkit-scrollbar-thumb,
+.luxury-scrollbar-horizontal::-webkit-scrollbar-thumb,
+.luxury-scrollbar-vertical::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #dfb56c 0%, #8c1d31 70%, #540d18 100%);
+  border-radius: 9999px;
+  border: 1px solid rgba(247, 226, 169, 0.4);
+  box-shadow: 0 0 10px rgba(223, 181, 108, 0.35);
+}
+
+.luxury-scrollbar::-webkit-scrollbar-thumb:hover,
+.luxury-scrollbar-horizontal::-webkit-scrollbar-thumb:hover,
+.luxury-scrollbar-vertical::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #ffffff 0%, #f7e2a9 40%, #dfb56c 100%);
+  box-shadow: 0 0 14px rgba(223, 181, 108, 0.6);
+}
+
+/* Firefox scrollbar support */
+.luxury-scrollbar,
+.luxury-scrollbar-horizontal,
+.luxury-scrollbar-vertical {
+  scrollbar-width: thin;
+  scrollbar-color: #dfb56c rgba(12, 9, 10, 0.9);
+}
+
+/* 3D Spatial transforms */
+.perspective-1200 {
+  perspective: 1200px;
+}
+.preserve-3d {
+  transform-style: preserve-3d;
+}
+.backface-hidden {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+
+

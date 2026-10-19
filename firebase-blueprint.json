@@ -1,0 +1,464 @@
+{
+  "entities": {
+    "Registration": {
+      "title": "Registration",
+      "description": "Student course registration application record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "regNumber": { "type": "string", "maxLength": 32 },
+        "fullName": { "type": "string", "maxLength": 150 },
+        "whatsappNumber": { "type": "string", "maxLength": 30 },
+        "email": { "type": "string", "maxLength": 120 },
+        "district": { "type": "string", "maxLength": 60 },
+        "city": { "type": "string", "maxLength": 60 },
+        "age": { "type": "string", "maxLength": 10 },
+        "occupation": { "type": "string", "maxLength": 100 },
+        "educationalQualification": { "type": "string", "maxLength": 120 },
+        "courseType": { "type": "string", "enum": ["PHYSICAL CLASS", "ZOOM CLASS"] },
+        "location": { "type": "string", "maxLength": 60 },
+        "previousPatternCourse": { "type": "string", "enum": ["YES", "NO"] },
+        "previousCourseDetails": { "type": "string", "maxLength": 1000 },
+        "whyJoin": { "type": "string", "maxLength": 1000 },
+        "expectedAchievements": { "type": "string", "maxLength": 1000 },
+        "status": { "type": "string", "enum": ["NEW", "CONTACTED", "CONFIRMED", "PAID", "COMPLETED", "CANCELLED"] },
+        "paymentStatus": { "type": "string", "enum": ["PENDING", "VERIFIED", "REJECTED"] },
+        "courseAccess": { "type": "string", "enum": ["PENDING", "ACTIVE", "LOCKED"] },
+        "password": { "type": "string", "maxLength": 100 },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["regNumber", "fullName", "whatsappNumber", "district", "courseType"]
+    },
+    "PaymentSlip": {
+      "title": "PaymentSlip",
+      "description": "Uploaded student bank transfer deposit receipt",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "studentId": { "type": "string", "maxLength": 100 },
+        "regNumber": { "type": "string", "maxLength": 32 },
+        "studentName": { "type": "string", "maxLength": 150 },
+        "whatsappNumber": { "type": "string", "maxLength": 30 },
+        "paymentType": { "type": "string", "maxLength": 50 },
+        "amount": { "type": "number" },
+        "paymentDate": { "type": "string", "maxLength": 30 },
+        "bankName": { "type": "string", "maxLength": 100 },
+        "transactionReference": { "type": "string", "maxLength": 100 },
+        "slipUrl": { "type": "string", "maxLength": 500000 },
+        "status": { "type": "string", "enum": ["PENDING", "VERIFIED", "REJECTED"] },
+        "adminNotes": { "type": "string", "maxLength": 1000 },
+        "createdAt": { "type": "string" },
+        "verifiedAt": { "type": "string" }
+      },
+      "required": ["regNumber", "amount", "slipUrl", "status"]
+    },
+    "Lesson": {
+      "title": "Lesson",
+      "description": "Curriculum recorded lesson, video and attached study materials",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "moduleId": { "type": "string", "maxLength": 50 },
+        "moduleNumber": { "type": "string", "maxLength": 10 },
+        "moduleTitle": { "type": "string", "maxLength": 150 },
+        "lessonNumber": { "type": "string", "maxLength": 10 },
+        "title": { "type": "string", "maxLength": 200 },
+        "description": { "type": "string", "maxLength": 2000 },
+        "videoUrl": { "type": "string", "maxLength": 500 },
+        "videoId": { "type": "string", "maxLength": 50 },
+        "duration": { "type": "string", "maxLength": 30 },
+        "notes": { "type": "string", "maxLength": 10000 },
+        "pdfTitle": { "type": "string", "maxLength": 150 },
+        "pdfUrl": { "type": "string", "maxLength": 1000 },
+        "imageUrls": { "type": "array" },
+        "isPublished": { "type": "boolean" },
+        "order": { "type": "number" }
+      },
+      "required": ["title", "lessonNumber", "order"]
+    },
+    "SiteSettings": {
+      "title": "SiteSettings",
+      "description": "Configurable website text, hero elements, pricing and social media links",
+      "type": "object",
+      "properties": {
+        "heroMediaType": { "type": "string", "enum": ["IMAGE", "VIDEO"] },
+        "heroTitle": { "type": "string", "maxLength": 500 },
+        "heroSubtitle": { "type": "string", "maxLength": 500 },
+        "heroCourseTitle": { "type": "string", "maxLength": 200 },
+        "heroCtaText": { "type": "string", "maxLength": 100 },
+        "heroImageUrl": { "type": "string", "maxLength": 1000 },
+        "heroVideoUrl": { "type": "string", "maxLength": 1000 },
+        "physicalFee": { "type": "number" },
+        "zoomFee": { "type": "number" },
+        "registrationFee": { "type": "number" },
+        "currency": { "type": "string", "maxLength": 20 },
+        "courseDuration": { "type": "string", "maxLength": 50 },
+        "discountNote": { "type": "string", "maxLength": 500 },
+        "whatsappContactNumber": { "type": "string", "maxLength": 30 },
+        "whatsappDefaultMessage": { "type": "string", "maxLength": 500 },
+        "bankName": { "type": "string", "maxLength": 100 },
+        "bankAccountName": { "type": "string", "maxLength": 150 },
+        "bankAccountNumber": { "type": "string", "maxLength": 50 },
+        "bankBranch": { "type": "string", "maxLength": 100 },
+        "paymentInstructions": { "type": "string", "maxLength": 1000 },
+        "announcement": { "type": "string", "maxLength": 500 },
+        "updatedAt": { "type": "string" }
+      }
+    },
+    "CourseModule": {
+      "title": "CourseModule",
+      "description": "Curriculum module item",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "number": { "type": "string", "maxLength": 10 },
+        "title": { "type": "string", "maxLength": 150 },
+        "description": { "type": "string", "maxLength": 1000 },
+        "category": { "type": "string", "maxLength": 60 },
+        "order": { "type": "number" },
+        "isPublished": { "type": "boolean" },
+        "iconName": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["number", "title", "order"]
+    },
+    "YouTubeVideo": {
+      "title": "YouTubeVideo",
+      "description": "Managed YouTube video showcase",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string", "maxLength": 200 },
+        "description": { "type": "string", "maxLength": 1000 },
+        "youtubeUrl": { "type": "string", "maxLength": 500 },
+        "videoId": { "type": "string", "maxLength": 50 },
+        "category": { "type": "string", "maxLength": 50 },
+        "duration": { "type": "string", "maxLength": 30 },
+        "isFeatured": { "type": "boolean" },
+        "isPublished": { "type": "boolean" },
+        "order": { "type": "number" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["title", "youtubeUrl", "category"]
+    },
+    "GalleryImage": {
+      "title": "GalleryImage",
+      "description": "Fashion gallery media item",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string", "maxLength": 150 },
+        "description": { "type": "string", "maxLength": 500 },
+        "imageUrl": { "type": "string", "maxLength": 2000 },
+        "category": { "type": "string", "maxLength": 50 },
+        "isFeatured": { "type": "boolean" },
+        "isPublished": { "type": "boolean" },
+        "order": { "type": "number" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["title", "imageUrl", "category"]
+    },
+    "Location": {
+      "title": "Location",
+      "description": "Physical studio branch / class location",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string", "maxLength": 100 },
+        "address": { "type": "string", "maxLength": 300 },
+        "mapUrl": { "type": "string", "maxLength": 1000 },
+        "schedule": { "type": "string", "maxLength": 200 },
+        "phone": { "type": "string", "maxLength": 50 },
+        "isActive": { "type": "boolean" },
+        "order": { "type": "number" }
+      },
+      "required": ["name", "isActive"]
+    },
+    "FAQ": {
+      "title": "FAQ",
+      "description": "Frequently asked course question",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "question": { "type": "string", "maxLength": 300 },
+        "answer": { "type": "string", "maxLength": 2000 },
+        "order": { "type": "number" },
+        "isPublished": { "type": "boolean" }
+      },
+      "required": ["question", "answer"]
+    },
+    "AuditLog": {
+      "title": "AuditLog",
+      "description": "Administrative actions audit log",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "action": { "type": "string", "maxLength": 100 },
+        "details": { "type": "string", "maxLength": 500 },
+        "adminEmail": { "type": "string", "maxLength": 120 },
+        "timestamp": { "type": "string" }
+      }
+    },
+    "VideoCategory": {
+      "title": "VideoCategory",
+      "description": "Fashion Learning Cinema dynamic categories",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "slug": { "type": "string", "maxLength": 50 },
+        "name": { "type": "string", "maxLength": 100 },
+        "nameSinhala": { "type": "string", "maxLength": 100 },
+        "description": { "type": "string", "maxLength": 500 },
+        "coverImageUrl": { "type": "string", "maxLength": 1000 },
+        "order": { "type": "number" },
+        "isActive": { "type": "boolean" }
+      },
+      "required": ["slug", "name", "order"]
+    },
+    "RunwayOutfit": {
+      "title": "RunwayOutfit",
+      "description": "3D Fashion Runway Look collection",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string", "maxLength": 150 },
+        "collectionName": { "type": "string", "maxLength": 150 },
+        "category": { "type": "string", "maxLength": 50 },
+        "style": { "type": "string", "maxLength": 100 },
+        "fabric": { "type": "string", "maxLength": 100 },
+        "description": { "type": "string", "maxLength": 1000 },
+        "thumbnailUrl": { "type": "string", "maxLength": 1000 },
+        "studentDesigner": { "type": "string", "maxLength": 100 },
+        "isFeatured": { "type": "boolean" },
+        "isPublished": { "type": "boolean" },
+        "displayOrder": { "type": "number" }
+      },
+      "required": ["title", "category", "thumbnailUrl"]
+    },
+    "StudentCreation": {
+      "title": "StudentCreation",
+      "description": "Moderated student creations for Live Brand Wall",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "studentRegNo": { "type": "string", "maxLength": 32 },
+        "studentName": { "type": "string", "maxLength": 150 },
+        "projectTitle": { "type": "string", "maxLength": 150 },
+        "collectionName": { "type": "string", "maxLength": 150 },
+        "category": { "type": "string", "maxLength": 100 },
+        "description": { "type": "string", "maxLength": 2000 },
+        "designImageUrl": { "type": "string", "maxLength": 1000 },
+        "patternImageUrl": { "type": "string", "maxLength": 1000 },
+        "garmentImageUrl": { "type": "string", "maxLength": 1000 },
+        "privacyLevel": { "type": "string", "enum": ["FULL_NAME", "FIRST_NAME_ONLY", "ANONYMOUS"] },
+        "status": { "type": "string", "enum": ["DRAFT", "PENDING", "APPROVED", "REJECTED", "NEEDS_CHANGES"] },
+        "isFeatured": { "type": "boolean" }
+      },
+      "required": ["studentRegNo", "projectTitle", "designImageUrl", "garmentImageUrl", "status"]
+    },
+    "BusinessCalculation": {
+      "title": "BusinessCalculation",
+      "description": "Fashion business cost and profit estimation record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "studentRegNo": { "type": "string", "maxLength": 32 },
+        "title": { "type": "string", "maxLength": 150 },
+        "quantity": { "type": "number" },
+        "totalCost": { "type": "number" },
+        "unitCost": { "type": "number" },
+        "sellingPrice": { "type": "number" },
+        "profitPerUnit": { "type": "number" },
+        "totalProfit": { "type": "number" },
+        "profitMargin": { "type": "number" }
+      },
+      "required": ["title", "totalCost", "sellingPrice"]
+    },
+    "LessonProgress": {
+      "title": "LessonProgress",
+      "description": "Student lesson watching completion and resume timestamp tracking",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "studentRegNo": { "type": "string", "maxLength": 32 },
+        "lessonId": { "type": "string", "maxLength": 64 },
+        "videoProgress": { "type": "number" },
+        "lessonCompleted": { "type": "boolean" },
+        "lastPosition": { "type": "number" },
+        "lastAccessedAt": { "type": "string" }
+      },
+      "required": ["studentRegNo", "lessonId"]
+    },
+    "Course": {
+      "title": "Course",
+      "description": "Academy course offering item",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "slug": { "type": "string", "maxLength": 100 },
+        "title": { "type": "string", "maxLength": 200 },
+        "titleSinhala": { "type": "string", "maxLength": 200 },
+        "description": { "type": "string", "maxLength": 2000 },
+        "descriptionSinhala": { "type": "string", "maxLength": 2000 },
+        "duration": { "type": "string", "maxLength": 50 },
+        "physicalFee": { "type": "number" },
+        "zoomFee": { "type": "number" },
+        "registrationFee": { "type": "number" },
+        "order": { "type": "number" },
+        "isPublished": { "type": "boolean" }
+      },
+      "required": ["title", "order"]
+    },
+    "WhyFeature": {
+      "title": "WhyFeature",
+      "description": "Why choose Ceylon Style Studio pillar feature",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "number": { "type": "string", "maxLength": 10 },
+        "title": { "type": "string", "maxLength": 150 },
+        "titleSinhala": { "type": "string", "maxLength": 150 },
+        "description": { "type": "string", "maxLength": 1000 },
+        "descriptionSinhala": { "type": "string", "maxLength": 1000 },
+        "order": { "type": "number" },
+        "isPublished": { "type": "boolean" }
+      },
+      "required": ["title", "order"]
+    },
+    "CustomForm": {
+      "title": "CustomForm",
+      "description": "Dynamic custom course application and survey forms configured by admin",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "slug": { "type": "string", "maxLength": 100 },
+        "title": { "type": "string", "maxLength": 200 },
+        "instructions": { "type": "string", "maxLength": 2000 },
+        "successMessage": { "type": "string", "maxLength": 1000 },
+        "associatedCourseId": { "type": "string", "maxLength": 100 },
+        "isPublished": { "type": "boolean" },
+        "version": { "type": "number" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["slug", "title", "version"]
+    },
+    "FormSubmission": {
+      "title": "FormSubmission",
+      "description": "Student submissions to admin-created custom forms",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "formId": { "type": "string", "maxLength": 100 },
+        "formSlug": { "type": "string", "maxLength": 100 },
+        "formVersion": { "type": "number" },
+        "courseId": { "type": "string", "maxLength": 100 },
+        "status": { "type": "string", "enum": ["NEW", "REVIEWED", "ARCHIVED"] },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["formId", "createdAt"]
+    },
+    "StudentReview": {
+      "title": "StudentReview",
+      "description": "Student video reviews and testimonial feedback",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "studentName": { "type": "string", "maxLength": 150 },
+        "courseTitle": { "type": "string", "maxLength": 200 },
+        "courseId": { "type": "string", "maxLength": 100 },
+        "youtubeUrl": { "type": "string", "maxLength": 500 },
+        "videoId": { "type": "string", "maxLength": 50 },
+        "writtenFeedback": { "type": "string", "maxLength": 2000 },
+        "rating": { "type": "number" },
+        "isApproved": { "type": "boolean" },
+        "isFeatured": { "type": "boolean" },
+        "order": { "type": "number" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["studentName", "youtubeUrl", "isApproved"]
+    }
+  },
+  "firestore": {
+    "/registrations/{registrationId}": {
+      "schema": { "$ref": "#/entities/Registration" },
+      "description": "Course registration forms submitted by public students and managed by admins"
+    },
+    "/payment_slips/{slipId}": {
+      "schema": { "$ref": "#/entities/PaymentSlip" },
+      "description": "Uploaded student payment slips awaiting admin inspection and approval"
+    },
+    "/lessons/{lessonId}": {
+      "schema": { "$ref": "#/entities/Lesson" },
+      "description": "Protected private course lessons with recorded videos, notes, and study PDFs"
+    },
+    "/site_settings/{settingId}": {
+      "schema": { "$ref": "#/entities/SiteSettings" },
+      "description": "Dynamic website content, pricing, and messaging"
+    },
+    "/courses/{courseId}": {
+      "schema": { "$ref": "#/entities/Course" },
+      "description": "Academy course offerings and intake details"
+    },
+    "/why_features/{featureId}": {
+      "schema": { "$ref": "#/entities/WhyFeature" },
+      "description": "Why study pillars and academy unique selling propositions"
+    },
+    "/course_modules/{moduleId}": {
+      "schema": { "$ref": "#/entities/CourseModule" },
+      "description": "Course curriculum modules editable via admin CMS"
+    },
+    "/youtube_videos/{videoId}": {
+      "schema": { "$ref": "#/entities/YouTubeVideo" },
+      "description": "Curated course and student YouTube videos"
+    },
+    "/gallery_images/{imageId}": {
+      "schema": { "$ref": "#/entities/GalleryImage" },
+      "description": "Fashion showcase and studio photography items"
+    },
+    "/locations/{locationId}": {
+      "schema": { "$ref": "#/entities/Location" },
+      "description": "Class locations Kegalle, Kurunegala, Piliyandala, etc."
+    },
+    "/faqs/{faqId}": {
+      "schema": { "$ref": "#/entities/FAQ" },
+      "description": "Course inquiries and answers"
+    },
+    "/audit_logs/{logId}": {
+      "schema": { "$ref": "#/entities/AuditLog" },
+      "description": "Administrative action logs"
+    },
+    "/video_categories/{categoryId}": {
+      "schema": { "$ref": "#/entities/VideoCategory" },
+      "description": "Fashion Learning Cinema dynamic categories"
+    },
+    "/runway_outfits/{outfitId}": {
+      "schema": { "$ref": "#/entities/RunwayOutfit" },
+      "description": "3D Fashion Runway Look collection"
+    },
+    "/student_creations/{creationId}": {
+      "schema": { "$ref": "#/entities/StudentCreation" },
+      "description": "Moderated student creations for Live Brand Wall"
+    },
+    "/business_calculations/{calcId}": {
+      "schema": { "$ref": "#/entities/BusinessCalculation" },
+      "description": "Saved student fashion business calculations"
+    },
+    "/lesson_progress/{progressId}": {
+      "schema": { "$ref": "#/entities/LessonProgress" },
+      "description": "Lesson and video playback progress per student"
+    },
+    "/custom_forms/{formId}": {
+      "schema": { "$ref": "#/entities/CustomForm" },
+      "description": "Custom course intake and survey forms"
+    },
+    "/form_submissions/{submissionId}": {
+      "schema": { "$ref": "#/entities/FormSubmission" },
+      "description": "Submissions to custom forms"
+    },
+    "/student_reviews/{reviewId}": {
+      "schema": { "$ref": "#/entities/StudentReview" },
+      "description": "Student video reviews and testimonials"
+    }
+  }
+}

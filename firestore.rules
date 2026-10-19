@@ -1,0 +1,146 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 1. Registrations & Students Collection
+    match /registrations/{registrationId} {
+      allow read, write: if true;
+    }
+
+    // 2. Payment Slips Collection
+    match /payment_slips/{slipId} {
+      allow read, write: if true;
+    }
+
+    // 3. Lessons (Private Recorded Lectures & Materials)
+    match /lessons/{lessonId} {
+      allow read, write: if true;
+    }
+
+    // 4. Site Settings Collection
+    match /site_settings/{settingId} {
+      allow read, write: if true;
+    }
+
+    // 5. Courses Collection
+    match /courses/{courseId} {
+      allow read, write: if true;
+    }
+
+    // 6. Course Modules Collection
+    match /course_modules/{moduleId} {
+      allow read, write: if true;
+    }
+
+    // 7. Why Course Features Collection
+    match /why_features/{featureId} {
+      allow read, write: if true;
+    }
+
+    // 8. YouTube Videos Collection
+    match /youtube_videos/{videoId} {
+      allow read, write: if true;
+    }
+
+    // 9. Gallery Images Collection
+    match /gallery_images/{imageId} {
+      allow read, write: if true;
+    }
+
+    // 10. Locations Collection
+    match /locations/{locationId} {
+      allow read, write: if true;
+    }
+
+    // 11. FAQs Collection
+    match /faqs/{faqId} {
+      allow read, write: if true;
+    }
+
+    // 12. Audit Logs Collection
+    match /audit_logs/{logId} {
+      allow read, write: if true;
+    }
+
+    // 13. Video Categories Collection (Fashion Learning Cinema)
+    match /video_categories/{categoryId} {
+      allow read, write: if true;
+    }
+
+    // 14. Runway Outfits Collection (3D Fashion Runway)
+    match /runway_outfits/{outfitId} {
+      allow read, write: if true;
+    }
+
+    // 15. Student Creations Collection (Live Brand Wall)
+    match /student_creations/{creationId} {
+      allow read, write: if true;
+    }
+
+    // 16. Business Calculations Collection (Fashion Business Calculator)
+    match /business_calculations/{calcId} {
+      allow read, write: if true;
+    }
+
+    // 17. Lesson Progress Collection (Tracking & Resume)
+    match /lesson_progress/{progressId} {
+      allow read, write: if true;
+    }
+
+    // 18. Follow-Up History & Analytics Events
+    match /follow_up_history/{historyId} {
+      allow read, write: if true;
+    }
+
+    match /analytics_events/{eventId} {
+      allow read, write: if true;
+    }
+
+    // 19. Admins Collection
+    match /admins/{adminId} {
+      allow read, write: if true;
+    }
+
+    // 20. Student Brand Module 02 Identity Studio
+    match /student_brand_modules/{studentId} {
+      allow read, write: if true;
+    }
+
+    // 21. Student Course Subscriptions & Paid Months Access
+    match /subscriptions/{subscriptionId} {
+      allow read, write: if true;
+    }
+
+    // 22. Live Zoom Classes & Attendance
+    match /zoom_classes/{classId} {
+      allow read, write: if true;
+    }
+
+    // 23. E-Learning Community Discussion Posts & Q&A
+    match /community_posts/{postId} {
+      allow read, write: if true;
+    }
+
+    // 24. Custom Forms
+    match /custom_forms/{formId} {
+      allow read, write: if true;
+    }
+
+    // 25. Form Submissions
+    match /form_submissions/{submissionId} {
+      allow read, write: if true;
+    }
+
+    // 26. Student Video Reviews & Testimonials
+    match /student_reviews/{reviewId} {
+      allow read, write: if true;
+    }
+  }
+}
+

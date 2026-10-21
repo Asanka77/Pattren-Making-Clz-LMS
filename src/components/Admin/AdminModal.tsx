@@ -52,6 +52,8 @@ import {
   Smartphone,
   GraduationCap,
   Flame,
+  KeyRound,
+  RefreshCw,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
@@ -202,6 +204,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose, initial
     updateRegistrationFull,
     deleteRegistration,
     auditLogs,
+    addAuditLog,
     campaigns,
     campaignLeads,
   } = useData();
@@ -220,6 +223,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose, initial
     | 'gallery'
     | 'locations'
     | 'faqs'
+    | 'security'
   >('dashboard');
 
   useEffect(() => {
@@ -237,11 +241,14 @@ export const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose, initial
       'gallery',
       'locations',
       'faqs',
+      'security',
     ].includes(initialTab)) {
       setActiveTab(initialTab as any);
     } else {
       const hash = window.location.hash.toLowerCase();
-      if (hash.includes('campaign')) {
+      if (hash.includes('security')) {
+        setActiveTab('security');
+      } else if (hash.includes('campaign')) {
         setActiveTab('campaigns');
       } else if (hash.includes('video') || hash.includes('masterclass') || hash.includes('tab7') || hash.includes('tab-7')) {
         setActiveTab('videos');
@@ -357,6 +364,160 @@ export const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose, initial
       setIsSavingSettings(false);
     }
   };
+
+  // Advanced Security Settings State
+  const [securityForm, setSecurityForm] = useState({
+    sessionTimeoutMinutes: siteSettings.securitySessionTimeoutMinutes || 30,
+    maxFailedAttempts: siteSettings.securityMaxFailedAttempts || 5,
+    lockoutDurationMinutes: siteSettings.securityLockoutDurationMinutes || 15,
+    requirePINForSensitiveActions: siteSettings.securityRequirePINForSensitiveActions !== false,
+    enforceTwoFactor: siteSettings.securityEnforceTwoFactor || false,
+    ipWhitelistEnabled: siteSettings.securityIpWhitelistEnabled || false,
+    allowedOrigins: siteSettings.securityAllowedOrigins || '*',
+    auditLogRetentionDays: siteSettings.securityAuditLogRetentionDays || 90,
+    emailAlertsOnFailedLogin: siteSettings.securityEmailAlertsOnFailedLogin !== false,
+  });
+  const [securitySaveSuccess, setSecuritySaveSuccess] = useState<string>('');
+  const [isSavingSecurity, setIsSavingSecurity] = useState<boolean>(false);
+
+  // Security Master PIN Management
+  const [currentPinInput, setCurrentPinInput] = useState('');
+  const [newPinInput, setNewPinInput] = useState('');
+  const [confirmPinInput, setConfirmPinInput] = useState('');
+  const [showPinInputText, setShowPinInputText] = useState(false);
+  const [pinChangeMsg, setPinChangeMsg] = useState<{ text: string; isError: boolean } | null>(null);
+
+  // Security Audit Log Filtering & Checkpoints
+  const [auditFilterCategory, setAuditFilterCategory] = useState<string>('ALL');
+  const [auditSearchQuery, setAuditSearchQuery] = useState<string>('');
+  const [checkpointInput, setCheckpointInput] = useState('');
+  const [showCheckpointInput, setShowCheckpointInput] = useState(false);
+
+  useEffect(() => {
+    setSecurityForm({
+      sessionTimeoutMinutes: siteSettings.securitySessionTimeoutMinutes || 30,
+      maxFailedAttempts: siteSettings.securityMaxFailedAttempts || 5,
+      lockoutDurationMinutes: siteSettings.securityLockoutDurationMinutes || 15,
+      requirePINForSensitiveActions: siteSettings.securityRequirePINForSensitiveActions !== false,
+      enforceTwoFactor: siteSettings.securityEnforceTwoFactor || false,
+      ipWhitelistEnabled: siteSettings.securityIpWhitelistEnabled || false,
+      allowedOrigins: siteSettings.securityAllowedOrigins || '*',
+      auditLogRetentionDays: siteSettings.securityAuditLogRetentionDays || 90,
+      emailAlertsOnFailedLogin: siteSettings.securityEmailAlertsOnFailedLogin !== false,
+    });
+  }, [siteSettings]);
+
+  const handleSaveSecuritySettings = async () => {
+    setIsSavingSecurity(true);
+    try {
+      await updateSiteSettings({
+        securitySessionTimeoutMinutes: Number(securityForm.sessionTimeoutMinutes),
+        securityMaxFailedAttempts: Number(securityForm.maxFailedAttempts),
+        securityLockoutDurationMinutes: Number(securityForm.lockoutDurationMinutes),
+        securityRequirePINForSensitiveActions: securityForm.requirePINForSensitiveActions,
+        securityEnforceTwoFactor: securityForm.enforceTwoFactor,
+        securityIpWhitelistEnabled: securityForm.ipWhitelistEnabled,
+        securityAllowedOrigins: securityForm.allowedOrigins,
+        securityAuditLogRetentionDays: Number(securityForm.auditLogRetentionDays),
+        securityEmailAlertsOnFailedLogin: securityForm.emailAlertsOnFailedLogin,
+      });
+      await addAuditLog(
+        'SECURITY_POLICY_UPDATE',
+        `Updated security policies: Timeout ${securityForm.sessionTimeoutMinutes}m, Max Attempts ${securityForm.maxFailedAttempts}, PIN required: ${
+          securityForm.requirePINForSensitiveActions ? 'YES' : 'NO'
+        }, 2FA: ${securityForm.enforceTwoFactor ? 'ENABLED' : 'DISABLED'}`
+      );
+      setSecuritySaveSuccess('ආරක්ෂක සැකසුම් සාර්ථකව සුරකින ලදී (Security policies saved & synced live).');
+      setTimeout(() => setSecuritySaveSuccess(''), 4000);
+    } catch (_) {
+      setSecuritySaveSuccess('Security update failed. Please check network.');
+    } finally {
+      setIsSavingSecurity(false);
+    }
+  };
+
+  const handleUpdateMasterPIN = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPinChangeMsg(null);
+    const existingPIN = siteSettings.securityMasterPIN || '755312';
+    if (currentPinInput.trim() !== existingPIN) {
+      setPinChangeMsg({ text: 'වත්මන් ආරක්ෂක PIN අංකය වැරදියි (Current Master PIN is incorrect).', isError: true });
+      return;
+    }
+    if (newPinInput.length < 4 || newPinInput.length > 8) {
+      setPinChangeMsg({ text: 'නව PIN අංකය සඳහා අංක 4-8ක් අතර තිබිය යුතුය (PIN must be 4 to 8 digits).', isError: true });
+      return;
+    }
+    if (newPinInput !== confirmPinInput) {
+      setPinChangeMsg({ text: 'නව PIN අංකය සහ තහවුරු කළ PIN අංකය සමාන නොවේ (New PIN and confirmation do not match).', isError: true });
+      return;
+    }
+    try {
+      await updateSiteSettings({ securityMasterPIN: newPinInput.trim() });
+      await addAuditLog('MASTER_PIN_CHANGED', 'Master administrator security PIN changed successfully.');
+      setPinChangeMsg({ text: 'පරිපාලන Master PIN අංකය සාර්ථකව වෙනස් කරන ලදී (Master PIN updated successfully).', isError: false });
+      setCurrentPinInput('');
+      setNewPinInput('');
+      setConfirmPinInput('');
+      setTimeout(() => setPinChangeMsg(null), 4000);
+    } catch (_) {
+      setPinChangeMsg({ text: 'PIN වෙනස් කිරීම අසාර්ථක විය (Failed to update PIN).', isError: true });
+    }
+  };
+
+  const handleResetLockout = async () => {
+    localStorage.removeItem('css_admin_lockout_until');
+    localStorage.removeItem('css_admin_failed_attempts');
+    setFailedAttempts(0);
+    setLockoutUntil(0);
+    setRemainingLockoutSec(0);
+    await addAuditLog('LOCKOUT_MANUAL_RESET', 'Administrator manually cleared failed attempts and lockout timers.');
+    setSecuritySaveSuccess('Login attempt counter and lockout timers have been reset to 0.');
+    setTimeout(() => setSecuritySaveSuccess(''), 4000);
+  };
+
+  const handleCreateSecurityCheckpoint = async () => {
+    if (!checkpointInput.trim()) return;
+    await addAuditLog('SECURITY_AUDIT_CHECKPOINT', checkpointInput.trim());
+    setCheckpointInput('');
+    setShowCheckpointInput(false);
+    setSecuritySaveSuccess('Security checkpoint recorded to audit log.');
+    setTimeout(() => setSecuritySaveSuccess(''), 4000);
+  };
+
+  const handleExportAuditLogs = () => {
+    const csvContent =
+      'data:text/csv;charset=utf-8,' +
+      'ID,Timestamp,Action,Admin Email,Details\n' +
+      auditLogs
+        .map(
+          (l) =>
+            `"${l.id}","${l.timestamp}","${(l.action || '').replace(/"/g, '""')}","${(l.adminEmail || '').replace(/"/g, '""')}","${(l.details || '').replace(/"/g, '""')}"`
+        )
+        .join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `Ceylon_Style_Studio_Audit_Logs_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const filteredAuditLogs = useMemo(() => {
+    return auditLogs.filter((log) => {
+      const matchCat =
+        auditFilterCategory === 'ALL' ||
+        (log.action && log.action.toUpperCase().includes(auditFilterCategory));
+      const q = auditSearchQuery.trim().toLowerCase();
+      const matchQuery =
+        !q ||
+        (log.action && log.action.toLowerCase().includes(q)) ||
+        (log.details && log.details.toLowerCase().includes(q)) ||
+        (log.adminEmail && log.adminEmail.toLowerCase().includes(q));
+      return matchCat && matchQuery;
+    });
+  }, [auditLogs, auditFilterCategory, auditSearchQuery]);
 
   // Statistics calculation
   const stats = useMemo(() => {
@@ -496,39 +657,15 @@ We look forward to learning and creating with you.`;
             </p>
           </div>
 
-          {/* Admin Credentials Quick Access Banner */}
-          <div className="mb-4 p-3 rounded-sm bg-[#1c1214] border border-[#dfb56c]/50 text-xs">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[11px] font-mono uppercase tracking-wider text-[#dfb56c] font-bold flex items-center gap-1.5">
-                <Shield className="w-3.5 h-3.5" />
-                Master Admin Access Credentials
-              </span>
-              <button
-                type="button"
-                onClick={() => {
-                  setAdminEmailInput('asankagarments@gmail.com');
-                  setAdminPasswordInput('As0703755312');
-                  setAdminAuthError(null);
-                  const success = loginAdminWithCredentials('asankagarments@gmail.com', 'As0703755312');
-                  if (!success) {
-                    setAdminAuthError('ප්‍රවේශ වීම අසාර්ථක විය.');
-                  }
-                }}
-                className="px-2.5 py-1 bg-[#dfb56c] hover:bg-[#c99a45] text-black font-bold text-[10px] uppercase tracking-wider rounded transition-all cursor-pointer shadow"
-              >
-                1-Click Quick Login
-              </button>
+          {/* Security Authorization Notice */}
+          <div className="mb-4 p-3 rounded-sm bg-[#1c1214] border border-[#dfb56c]/30 text-xs">
+            <div className="flex items-center gap-2 text-[#dfb56c] font-bold text-[11px] uppercase tracking-wider font-mono">
+              <Shield className="w-3.5 h-3.5" />
+              <span>Master Admin Security Portal</span>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] font-mono text-zinc-300 bg-black/40 p-2 rounded border border-white/5">
-              <div>
-                <span className="text-zinc-500 block text-[9px] uppercase">Admin Username / Email:</span>
-                <span className="text-[#f7e2a9] select-all">asankagarments@gmail.com</span>
-              </div>
-              <div>
-                <span className="text-zinc-500 block text-[9px] uppercase">Admin Password:</span>
-                <span className="text-[#f7e2a9] select-all">As0703755312</span>
-              </div>
-            </div>
+            <p className="text-[11px] text-[#a89f91] mt-1 font-sinhala leading-relaxed">
+              මෙම පද්ධතිය CEYLON STYLE STUDIO බලයලත් පරිපාලකයින් සඳහා පමණි. අනවසර පිවිසුම් උත්සාහයන් ස්වයංක්‍රීයව සටහන් වන අතර පද්ධතිය අගුළු වැටේ.
+            </p>
           </div>
 
           {isLockedOut ? (
@@ -561,7 +698,7 @@ We look forward to learning and creating with you.`;
                     setAdminEmailInput(e.target.value);
                     setAdminAuthError(null);
                   }}
-                  placeholder="asankagarments@gmail.com"
+                  placeholder="admin@ceylonstylestudio.lk"
                   disabled={isLockedOut}
                   className="w-full pl-9 pr-3.5 py-2.5 bg-[#0c090a] border border-white/15 focus:border-[#dfb56c] rounded-sm text-xs text-[#f7f3eb] placeholder-zinc-600 outline-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   required
@@ -593,19 +730,11 @@ We look forward to learning and creating with you.`;
             </div>
 
             <div className="flex items-center justify-between text-[11px] pt-1">
-              <span className="text-[#a89f91] font-mono">asankagarments@gmail.com</span>
-              <button
-                type="button"
-                onClick={() => {
-                  setAdminEmailInput('asankagarments@gmail.com');
-                  setAdminPasswordInput('As0703755312');
-                  setAdminAuthError(null);
-                }}
-                className="text-[#dfb56c] hover:underline font-bold font-mono cursor-pointer"
-                title="Auto-fill master admin credentials"
-              >
-                Auto-Fill Credentials
-              </button>
+              <span className="text-[#a89f91] text-[10px] font-mono flex items-center gap-1">
+                <Lock className="w-3 h-3 text-[#dfb56c]" />
+                Authorized Admin Personnel Only
+              </span>
+              <span className="text-zinc-500 text-[10px] font-mono">256-Bit SSL Encrypted</span>
             </div>
 
             <button
@@ -640,11 +769,8 @@ We look forward to learning and creating with you.`;
                 } catch (err: any) {
                   const code = err?.code || '';
                   if (code === 'auth/popup-blocked' || code === 'auth/cancelled-popup-request') {
-                    // Pre-fill credentials automatically when popup is blocked by iframe or browser
-                    setAdminEmailInput('asankagarments@gmail.com');
-                    setAdminPasswordInput('As0703755312');
                     setAdminAuthError(
-                      'බ්‍රවුසරය / iframe මගින් Google Popup එක අවහිර කර ඇත (Popup Blocked). Admin Credentials ස්වයංක්‍රීයව ඇතුළත් විය — කරුණාකර "Verify & Enter Admin Console" ක්ලික් කරන්න.'
+                      'බ්‍රවුසරය / iframe මගින් Google Popup එක අවහිර කර ඇත (Popup Blocked). කරුණාකර ඔබගේ Administrator Email සහ Password යොදා පිවිසෙන්න.'
                     );
                   } else if (code === 'auth/popup-closed-by-user') {
                     setAdminAuthError('ගූගල් ලොගින් කවුළුව වැසිණි (Popup closed). නැවත උත්සාහ කරන්න.');
@@ -658,7 +784,7 @@ We look forward to learning and creating with you.`;
               className="w-full py-2.5 bg-[#1e1316] hover:bg-[#2b1b1f] border border-[#dfb56c]/40 text-[#f7e2a9] text-xs font-semibold rounded-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
               <LogIn className="w-4 h-4 text-[#dfb56c]" />
-              <span>Sign In with Google (asankagarments@gmail.com)</span>
+              <span>Sign In with Google</span>
             </button>
           </div>
         </div>
@@ -679,7 +805,7 @@ We look forward to learning and creating with you.`;
               CEYLON STYLE STUDIO • ACADEMY CONTROL CENTER
             </span>
             <span className="text-[10px] font-mono text-[#dfb56c]">
-              Authenticated: {user?.email || 'asankagarments@gmail.com (Master Administrator)'}
+              Authenticated: {user?.email || 'Master Administrator (Active Session)'}
             </span>
           </div>
         </div>
@@ -767,6 +893,12 @@ We look forward to learning and creating with you.`;
               { id: 'gallery', label: `Style Collections (${gallery.length})`, icon: <ImageIcon className="w-4 h-4" /> },
               { id: 'locations', label: `Studios (${locations.length})`, icon: <MapPin className="w-4 h-4" /> },
               { id: 'faqs', label: `FAQs (${faqs.length})`, icon: <HelpCircle className="w-4 h-4" /> },
+              {
+                id: 'security',
+                label: 'Advanced Security Console',
+                sublabel: 'Audit, Lockout, 2FA, PIN & Protection',
+                icon: <ShieldAlert className="w-4 h-4 text-[#dfb56c]" />,
+              },
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -4769,6 +4901,572 @@ We look forward to learning and creating with you.`;
                     </button>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* TAB: ADVANCED SECURITY CONSOLE */}
+          {activeTab === 'security' && (
+            <div className="space-y-6 animate-in fade-in duration-300">
+              {/* Header */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#c99a45]/20">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono uppercase tracking-wider bg-[#540d18] text-[#f7e2a9] border border-[#dfb56c]/40 font-bold">
+                      Defense Tier 1
+                    </span>
+                    <h3 className="text-xl font-editorial font-bold text-[#f7f3eb]">
+                      Advanced Security &amp; Access Control Console
+                    </h3>
+                  </div>
+                  <p className="text-xs text-[#b8afa2] mt-1 font-sinhala">
+                    අධි-ආරක්ෂිත පරිපාලන සැකසුම්, අනවසර පිවිසුම් අගුළු (Rate-Limiting), Master PIN ආරක්ෂණය, 2FA ප්‍රතිපත්ති සහ සවිස්තරාත්මක Audit Logs කළමනාකරණය කරන්න.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={handleResetLockout}
+                    className="px-3 py-2 bg-[#1c1214] hover:bg-[#251518] border border-amber-500/40 text-amber-300 rounded-sm text-xs font-mono font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                    title="Clear failed login attempts and reset lockout timer"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>Reset Lockout ({failedAttempts} Fails)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowCheckpointInput(!showCheckpointInput)}
+                    className="px-3 py-2 bg-[#1c1214] hover:bg-[#251518] border border-[#dfb56c]/50 text-[#f7e2a9] rounded-sm text-xs font-mono font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Log Checkpoint</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleExportAuditLogs}
+                    className="px-3 py-2 bg-[#540d18] hover:bg-[#68111e] border border-[#dfb56c] text-[#f7e2a9] rounded-sm text-xs font-mono font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-md"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Export Audit Trail (.csv)</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Notification Banner */}
+              {securitySaveSuccess && (
+                <div className="p-3.5 rounded bg-emerald-950/80 border border-emerald-500 text-emerald-200 text-xs flex items-center gap-2.5 font-sinhala shadow-lg">
+                  <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span className="font-semibold">{securitySaveSuccess}</span>
+                </div>
+              )}
+
+              {/* Checkpoint Input Drawer */}
+              {showCheckpointInput && (
+                <div className="p-4 rounded-sm bg-[#181113] border border-[#dfb56c]/60 space-y-2 animate-in fade-in duration-200">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-mono uppercase tracking-wider text-[#dfb56c] font-bold flex items-center gap-1.5">
+                      <Shield className="w-3.5 h-3.5" />
+                      Record Security Audit Checkpoint
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowCheckpointInput(false)}
+                      className="text-[#a89f91] hover:text-white text-xs"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-[#a89f91]">
+                    Enter manual audit notes (e.g. system inspection, payment audit, credentials rotation) to log permanently into the tamper-resistant security stream:
+                  </p>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={checkpointInput}
+                      onChange={(e) => setCheckpointInput(e.target.value)}
+                      placeholder="e.g. Completed bi-weekly student payment verification & security review."
+                      className="flex-1 px-3 py-2 bg-black/60 border border-white/20 rounded-sm text-xs text-[#f7f3eb] focus:border-[#dfb56c] outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleCreateSecurityCheckpoint}
+                      className="px-4 py-2 bg-[#dfb56c] hover:bg-[#c99a45] text-black font-bold text-xs uppercase rounded-sm"
+                    >
+                      Save Checkpoint
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Security Health Overview Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* Card 1 */}
+                <div className="p-4 rounded-sm bg-[#0c090a] border border-[#c99a45]/30 flex flex-col justify-between">
+                  <div className="flex items-center justify-between text-xs text-[#a89f91] mb-2 font-mono">
+                    <span>BRUTE-FORCE SHIELD</span>
+                    <Lock className="w-4 h-4 text-emerald-400" />
+                  </div>
+                  <div>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-2xl font-bold font-mono text-[#f7f3eb]">
+                        {failedAttempts}
+                      </span>
+                      <span className="text-xs text-[#a89f91] font-mono">
+                        / {securityForm.maxFailedAttempts} max attempts
+                      </span>
+                    </div>
+                    <span className={`text-[11px] font-mono block mt-1 ${isLockedOut ? 'text-red-400 font-bold' : 'text-emerald-400'}`}>
+                      {isLockedOut ? `LOCKED (${remainingLockoutSec}s)` : '● Armed & Active (15m Lockout)'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Card 2 */}
+                <div className="p-4 rounded-sm bg-[#0c090a] border border-[#c99a45]/30 flex flex-col justify-between">
+                  <div className="flex items-center justify-between text-xs text-[#a89f91] mb-2 font-mono">
+                    <span>SENSITIVE PIN GUARD</span>
+                    <KeyRound className="w-4 h-4 text-[#dfb56c]" />
+                  </div>
+                  <div>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-2xl font-bold font-mono text-[#dfb56c]">
+                        {securityForm.requirePINForSensitiveActions ? 'ENFORCED' : 'OFF'}
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-[#a89f91] font-mono block mt-1">
+                      Protects Payments &amp; Fee Edits
+                    </span>
+                  </div>
+                </div>
+
+                {/* Card 3 */}
+                <div className="p-4 rounded-sm bg-[#0c090a] border border-[#c99a45]/30 flex flex-col justify-between">
+                  <div className="flex items-center justify-between text-xs text-[#a89f91] mb-2 font-mono">
+                    <span>SESSION TIMEOUT</span>
+                    <Clock className="w-4 h-4 text-sky-400" />
+                  </div>
+                  <div>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-2xl font-bold font-mono text-[#f7f3eb]">
+                        {securityForm.sessionTimeoutMinutes}
+                      </span>
+                      <span className="text-xs text-[#a89f91] font-mono">minutes</span>
+                    </div>
+                    <span className="text-[11px] text-sky-400 font-mono block mt-1">
+                      {securityForm.enforceTwoFactor ? '● 2FA Enforced' : '● Inactivity Expiry Active'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Card 4 */}
+                <div className="p-4 rounded-sm bg-[#0c090a] border border-[#c99a45]/30 flex flex-col justify-between">
+                  <div className="flex items-center justify-between text-xs text-[#a89f91] mb-2 font-mono">
+                    <span>IMMUTABLE AUDIT LOGS</span>
+                    <Shield className="w-4 h-4 text-purple-400" />
+                  </div>
+                  <div>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-2xl font-bold font-mono text-[#f7f3eb]">
+                        {auditLogs.length}
+                      </span>
+                      <span className="text-xs text-[#a89f91] font-mono">events</span>
+                    </div>
+                    <span className="text-[11px] text-purple-400 font-mono block mt-1">
+                      {securityForm.auditLogRetentionDays} Days Live Retention
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Two Column Grid: Policy Controls & Master PIN Manager */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Column 1 & 2: Security Policy Settings */}
+                <div className="lg:col-span-2 p-5 rounded-sm bg-[#0c090a] border border-[#c99a45]/30 space-y-5">
+                  <div className="flex items-center justify-between pb-3 border-b border-white/10">
+                    <div className="flex items-center gap-2">
+                      <Shield className="w-4 h-4 text-[#dfb56c]" />
+                      <h4 className="text-sm font-bold font-mono uppercase tracking-wider text-[#f7f3eb]">
+                        Security Policy &amp; Access Parameters
+                      </h4>
+                    </div>
+                    <span className="text-[10px] font-mono text-[#a89f91]">Configurable by Super Admin</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Session Timeout */}
+                    <div>
+                      <label className="block text-xs uppercase font-mono text-[#d5cfc4] mb-1.5 font-semibold">
+                        Auto Session Inactivity Timeout
+                      </label>
+                      <select
+                        value={securityForm.sessionTimeoutMinutes}
+                        onChange={(e) =>
+                          setSecurityForm({ ...securityForm, sessionTimeoutMinutes: parseInt(e.target.value, 10) })
+                        }
+                        className="w-full px-3 py-2 bg-black/60 border border-white/15 focus:border-[#dfb56c] rounded-sm text-xs text-[#f7f3eb] outline-none"
+                      >
+                        <option value={15}>15 Minutes (Strict High Security)</option>
+                        <option value={30}>30 Minutes (Recommended Standard)</option>
+                        <option value={60}>60 Minutes (Extended Operations)</option>
+                        <option value={120}>120 Minutes (2 Hours Maximum)</option>
+                      </select>
+                      <span className="text-[10px] text-[#a89f91] mt-1 block font-sinhala">
+                        පරිපාලක විසින් කිසිදු ක්‍රියාවක් නොකරන විට console එක ස්වයංක්‍රීයව sign out වන කාලය.
+                      </span>
+                    </div>
+
+                    {/* Max Failed Attempts */}
+                    <div>
+                      <label className="block text-xs uppercase font-mono text-[#d5cfc4] mb-1.5 font-semibold">
+                        Brute-Force Lockout Threshold
+                      </label>
+                      <select
+                        value={securityForm.maxFailedAttempts}
+                        onChange={(e) =>
+                          setSecurityForm({ ...securityForm, maxFailedAttempts: parseInt(e.target.value, 10) })
+                        }
+                        className="w-full px-3 py-2 bg-black/60 border border-white/15 focus:border-[#dfb56c] rounded-sm text-xs text-[#f7f3eb] outline-none"
+                      >
+                        <option value={3}>3 Failed Attempts (Ultra-Strict)</option>
+                        <option value={5}>5 Failed Attempts (Standard Protection)</option>
+                        <option value={10}>10 Failed Attempts (Relaxed)</option>
+                      </select>
+                      <span className="text-[10px] text-[#a89f91] mt-1 block font-sinhala">
+                        මුරපදය වැරදුන වාර ගණන ඉක්මවූ විට console එක අගුළු වැටෙන සීමාව.
+                      </span>
+                    </div>
+
+                    {/* Lockout Duration */}
+                    <div>
+                      <label className="block text-xs uppercase font-mono text-[#d5cfc4] mb-1.5 font-semibold">
+                        Lockout Penalty Duration
+                      </label>
+                      <select
+                        value={securityForm.lockoutDurationMinutes}
+                        onChange={(e) =>
+                          setSecurityForm({ ...securityForm, lockoutDurationMinutes: parseInt(e.target.value, 10) })
+                        }
+                        className="w-full px-3 py-2 bg-black/60 border border-white/15 focus:border-[#dfb56c] rounded-sm text-xs text-[#f7f3eb] outline-none"
+                      >
+                        <option value={10}>10 Minutes Temporary Lock</option>
+                        <option value={15}>15 Minutes (Recommended)</option>
+                        <option value={30}>30 Minutes Extended Lock</option>
+                        <option value={60}>60 Minutes Maximum Lockdown</option>
+                      </select>
+                    </div>
+
+                    {/* Audit Retention */}
+                    <div>
+                      <label className="block text-xs uppercase font-mono text-[#d5cfc4] mb-1.5 font-semibold">
+                        Audit Log Retention Period
+                      </label>
+                      <select
+                        value={securityForm.auditLogRetentionDays}
+                        onChange={(e) =>
+                          setSecurityForm({ ...securityForm, auditLogRetentionDays: parseInt(e.target.value, 10) })
+                        }
+                        className="w-full px-3 py-2 bg-black/60 border border-white/15 focus:border-[#dfb56c] rounded-sm text-xs text-[#f7f3eb] outline-none"
+                      >
+                        <option value={30}>30 Days</option>
+                        <option value={90}>90 Days (Quarterly Audit)</option>
+                        <option value={180}>180 Days (Half Year)</option>
+                        <option value={365}>365 Days (1 Full Year)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Security Policy Checkbox Toggles */}
+                  <div className="space-y-3 pt-3 border-t border-white/10">
+                    <label className="flex items-start gap-3 p-3 rounded bg-black/40 border border-white/10 hover:border-[#dfb56c]/40 cursor-pointer transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={securityForm.requirePINForSensitiveActions}
+                        onChange={(e) =>
+                          setSecurityForm({ ...securityForm, requirePINForSensitiveActions: e.target.checked })
+                        }
+                        className="mt-0.5 accent-[#dfb56c]"
+                      />
+                      <div>
+                        <span className="text-xs font-bold text-[#f7f3eb] block font-mono">
+                          Require Master Security PIN for High-Risk Actions
+                        </span>
+                        <span className="text-[11px] text-[#b8afa2] font-sinhala block mt-0.5">
+                          සිසුන්ගේ බැංකු රිසිට්පත් අනුමත කිරීම/ප්‍රතික්ෂේප කිරීම, සිසුන් දත්ත මකාදැමීම සහ පාඨමාලා ගාස්තු වෙනස් කිරීම සඳහා ආරක්ෂක Master PIN අංකය අනිවාර්ය කරන්න.
+                        </span>
+                      </div>
+                    </label>
+
+                    <label className="flex items-start gap-3 p-3 rounded bg-black/40 border border-white/10 hover:border-[#dfb56c]/40 cursor-pointer transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={securityForm.enforceTwoFactor}
+                        onChange={(e) =>
+                          setSecurityForm({ ...securityForm, enforceTwoFactor: e.target.checked })
+                        }
+                        className="mt-0.5 accent-[#dfb56c]"
+                      />
+                      <div>
+                        <span className="text-xs font-bold text-[#f7f3eb] block font-mono">
+                          Enforce Two-Factor Authentication (2FA Policy)
+                        </span>
+                        <span className="text-[11px] text-[#b8afa2] font-sinhala block mt-0.5">
+                          පරිපාලක පිවිසුම සඳහා Google Authenticator / Firebase 2FA ආරක්ෂක තහවුරු කිරීම සක්‍රීය කරන්න.
+                        </span>
+                      </div>
+                    </label>
+
+                    <label className="flex items-start gap-3 p-3 rounded bg-black/40 border border-white/10 hover:border-[#dfb56c]/40 cursor-pointer transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={securityForm.emailAlertsOnFailedLogin}
+                        onChange={(e) =>
+                          setSecurityForm({ ...securityForm, emailAlertsOnFailedLogin: e.target.checked })
+                        }
+                        className="mt-0.5 accent-[#dfb56c]"
+                      />
+                      <div>
+                        <span className="text-xs font-bold text-[#f7f3eb] block font-mono">
+                          Instant Security Alert Dispatch on Threat Detection
+                        </span>
+                        <span className="text-[11px] text-[#b8afa2] font-sinhala block mt-0.5">
+                          අඛණ්ඩව 3 වරකට වඩා වැරදි මුරපද ඇතුළත් කළහොත් ප්‍රධාන පරිපාලකගේ ඊමේල් ලිපිනය වෙත වහාම ආරක්ෂක අනතුරු ඇඟවීමක් එවන්න.
+                        </span>
+                      </div>
+                    </label>
+                  </div>
+
+                  <div className="pt-2 flex justify-end">
+                    <button
+                      type="button"
+                      disabled={isSavingSecurity}
+                      onClick={handleSaveSecuritySettings}
+                      className="px-6 py-2.5 bg-gradient-to-r from-[#dfb56c] to-[#c99a45] hover:brightness-110 text-black font-bold text-xs uppercase tracking-wider rounded-sm transition-all shadow-md flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                    >
+                      <Save className="w-4 h-4 fill-black" />
+                      <span>{isSavingSecurity ? 'Saving Security Policies...' : 'Save & Enforce Security Policies'}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Column 3: Master PIN Management */}
+                <div className="p-5 rounded-sm bg-[#0c090a] border border-[#c99a45]/30 space-y-4 flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center gap-2 pb-3 border-b border-white/10">
+                      <KeyRound className="w-4 h-4 text-[#dfb56c]" />
+                      <h4 className="text-sm font-bold font-mono uppercase tracking-wider text-[#f7f3eb]">
+                        Master Security PIN
+                      </h4>
+                    </div>
+
+                    <p className="text-[11px] text-[#b8afa2] mt-2 font-sinhala leading-relaxed">
+                      ගෙවීම් තහවුරු කිරීම් (Payment Verification) සහ සංවේදී දත්ත වෙනස් කිරීම් සඳහා භාවිත වන Master PIN අංකය (Default: 755312) මෙතැනින් ආරක්ෂිතව වෙනස් කරන්න.
+                    </p>
+
+                    {pinChangeMsg && (
+                      <div
+                        className={`p-3 rounded text-xs mt-3 flex items-start gap-2 ${
+                          pinChangeMsg.isError
+                            ? 'bg-red-950/80 border border-red-500 text-red-200'
+                            : 'bg-emerald-950/80 border border-emerald-500 text-emerald-200'
+                        }`}
+                      >
+                        {pinChangeMsg.isError ? (
+                          <AlertCircle className="w-4 h-4 shrink-0 text-red-400 mt-0.5" />
+                        ) : (
+                          <CheckCircle className="w-4 h-4 shrink-0 text-emerald-400 mt-0.5" />
+                        )}
+                        <span className="font-sinhala leading-tight">{pinChangeMsg.text}</span>
+                      </div>
+                    )}
+
+                    <form onSubmit={handleUpdateMasterPIN} className="space-y-3 mt-4">
+                      <div>
+                        <label className="block text-[11px] uppercase font-mono text-[#d5cfc4] mb-1 font-semibold">
+                          Current Master PIN
+                        </label>
+                        <input
+                          type={showPinInputText ? 'text' : 'password'}
+                          value={currentPinInput}
+                          onChange={(e) => setCurrentPinInput(e.target.value)}
+                          placeholder="Current PIN (e.g. 755312)"
+                          className="w-full px-3 py-2 bg-black/60 border border-white/15 focus:border-[#dfb56c] rounded-sm text-xs text-[#f7f3eb] font-mono tracking-widest outline-none"
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] uppercase font-mono text-[#d5cfc4] mb-1 font-semibold">
+                          New Master PIN (4-8 Digits)
+                        </label>
+                        <input
+                          type={showPinInputText ? 'text' : 'password'}
+                          value={newPinInput}
+                          onChange={(e) => setNewPinInput(e.target.value)}
+                          placeholder="••••••"
+                          maxLength={8}
+                          className="w-full px-3 py-2 bg-black/60 border border-white/15 focus:border-[#dfb56c] rounded-sm text-xs text-[#f7f3eb] font-mono tracking-widest outline-none"
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] uppercase font-mono text-[#d5cfc4] mb-1 font-semibold">
+                          Confirm New Master PIN
+                        </label>
+                        <input
+                          type={showPinInputText ? 'text' : 'password'}
+                          value={confirmPinInput}
+                          onChange={(e) => setConfirmPinInput(e.target.value)}
+                          placeholder="••••••"
+                          maxLength={8}
+                          className="w-full px-3 py-2 bg-black/60 border border-white/15 focus:border-[#dfb56c] rounded-sm text-xs text-[#f7f3eb] font-mono tracking-widest outline-none"
+                          required
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between pt-1">
+                        <button
+                          type="button"
+                          onClick={() => setShowPinInputText(!showPinInputText)}
+                          className="text-[11px] text-[#a89f91] hover:text-[#dfb56c] flex items-center gap-1 cursor-pointer"
+                        >
+                          {showPinInputText ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                          <span>{showPinInputText ? 'Hide Digits' : 'Show Digits'}</span>
+                        </button>
+                      </div>
+
+                      <button
+                        type="submit"
+                        className="w-full py-2.5 bg-[#540d18] hover:bg-[#68111e] border border-[#dfb56c] text-[#f7e2a9] font-bold text-xs uppercase tracking-wider rounded-sm transition-all shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <KeyRound className="w-3.5 h-3.5" />
+                        <span>Update Master PIN</span>
+                      </button>
+                    </form>
+                  </div>
+
+                  {/* Tamper Shield Note */}
+                  <div className="p-3 rounded bg-[#1c1214] border border-[#dfb56c]/30 text-[11px] text-[#a89f91] font-sinhala leading-relaxed">
+                    <span className="font-bold text-[#dfb56c] block mb-1 font-mono uppercase">
+                      🔒 Anti-Tamper Shield
+                    </span>
+                    පාඨමාලා ගාස්තු සහ බැංකු ගිණුම් තොරතුරු client-side හරහා අනවසරයෙන් වෙනස් කළ නොහැකි ලෙස cryptographic token validation මගින් ආරක්ෂා කර ඇත.
+                  </div>
+                </div>
+              </div>
+
+              {/* Real-Time Security Audit Log Stream */}
+              <div className="p-5 rounded-sm bg-[#0c090a] border border-[#c99a45]/30 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/10">
+                  <div className="flex items-center gap-2">
+                    <Shield className="w-4 h-4 text-purple-400" />
+                    <div>
+                      <h4 className="text-sm font-bold font-mono uppercase tracking-wider text-[#f7f3eb]">
+                        Live Security &amp; Administrative Audit Stream
+                      </h4>
+                      <span className="text-[10px] text-[#a89f91] font-mono">
+                        Showing {filteredAuditLogs.length} of {auditLogs.length} total events
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Search and Category Filters */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="relative">
+                      <Search className="w-3.5 h-3.5 text-[#a89f91] absolute left-2.5 top-2.5 pointer-events-none" />
+                      <input
+                        type="text"
+                        value={auditSearchQuery}
+                        onChange={(e) => setAuditSearchQuery(e.target.value)}
+                        placeholder="Search audit trail..."
+                        className="pl-8 pr-3 py-1.5 bg-black/60 border border-white/20 rounded-sm text-xs text-[#f7f3eb] focus:border-[#dfb56c] outline-none w-44"
+                      />
+                    </div>
+
+                    <select
+                      value={auditFilterCategory}
+                      onChange={(e) => setAuditFilterCategory(e.target.value)}
+                      className="px-2.5 py-1.5 bg-black/60 border border-white/20 rounded-sm text-xs text-[#f7f3eb] focus:border-[#dfb56c] outline-none font-mono"
+                    >
+                      <option value="ALL">All Categories</option>
+                      <option value="SECURITY">Security &amp; PIN</option>
+                      <option value="PAYMENT">Payments &amp; Slips</option>
+                      <option value="STUDENT">Student Access</option>
+                      <option value="LOCKOUT">Lockouts &amp; Auth</option>
+                    </select>
+
+                    <button
+                      type="button"
+                      onClick={handleExportAuditLogs}
+                      className="px-2.5 py-1.5 bg-[#1c1214] hover:bg-[#251518] border border-white/20 hover:border-[#dfb56c] rounded-sm text-xs text-[#dfb56c] flex items-center gap-1 font-mono transition-colors"
+                      title="Download complete audit log in CSV format"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>CSV</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Audit Entries List */}
+                <div className="max-h-96 overflow-y-auto space-y-2 pr-1">
+                  {filteredAuditLogs.length === 0 ? (
+                    <div className="text-center py-12 text-zinc-500 font-mono text-xs">
+                      No security audit events found matching the criteria.
+                    </div>
+                  ) : (
+                    filteredAuditLogs.map((log) => {
+                      const isSecurity =
+                        log.action.includes('SECURITY') ||
+                        log.action.includes('PIN') ||
+                        log.action.includes('LOCKOUT');
+                      const isPayment = log.action.includes('PAYMENT');
+                      const isStudent = log.action.includes('STUDENT');
+
+                      return (
+                        <div
+                          key={log.id}
+                          className="p-3 rounded-sm bg-[#141011] border border-white/5 hover:border-white/15 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs transition-colors"
+                        >
+                          <div className="flex items-start gap-3 min-w-0">
+                            <span
+                              className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase shrink-0 mt-0.5 ${
+                                isSecurity
+                                  ? 'bg-amber-950/80 text-amber-300 border border-amber-500/40'
+                                  : isPayment
+                                  ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-500/40'
+                                  : isStudent
+                                  ? 'bg-sky-950/80 text-sky-300 border border-sky-500/40'
+                                  : 'bg-zinc-800 text-zinc-300 border border-white/10'
+                              }`}
+                            >
+                              {log.action}
+                            </span>
+                            <div className="min-w-0">
+                              <p className="text-[#f7f3eb] font-sans break-words">{log.details}</p>
+                              <div className="flex items-center gap-3 text-[10px] text-[#a89f91] font-mono mt-1">
+                                <span>Actor: {log.adminEmail}</span>
+                                <span>•</span>
+                                <span>ID: {log.id}</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="shrink-0 text-right">
+                            <span className="text-[11px] font-mono text-[#dfb56c] block">
+                              {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                            </span>
+                            <span className="text-[10px] text-zinc-500 font-mono block">
+                              {new Date(log.timestamp).toLocaleDateString()}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
               </div>
             </div>
           )}

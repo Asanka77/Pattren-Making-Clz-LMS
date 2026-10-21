@@ -147,6 +147,17 @@ export const DEFAULT_SITE_SETTINGS: SiteSettings = {
   sewingTutorialsPinterestTabId: "696932179776250726",
   sewingTutorialsShowDescription: true,
   sewingTutorialsPlayerAspect: "adaptive",
+  // Advanced Security Settings Defaults
+  securitySessionTimeoutMinutes: 30,
+  securityMaxFailedAttempts: 5,
+  securityLockoutDurationMinutes: 15,
+  securityRequirePINForSensitiveActions: true,
+  securityMasterPIN: "755312",
+  securityEnforceTwoFactor: false,
+  securityIpWhitelistEnabled: false,
+  securityAllowedOrigins: "*",
+  securityAuditLogRetentionDays: 90,
+  securityEmailAlertsOnFailedLogin: true,
   socialLinks: {
     facebook: "https://facebook.com/ceylonstylestudio",
     instagram: "https://instagram.com/ceylonstylestudio",

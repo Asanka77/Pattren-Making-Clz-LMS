@@ -508,6 +508,18 @@ export interface SiteSettings {
   sewingTutorialsShowDescription?: boolean;
   sewingTutorialsPlayerAspect?: 'adaptive' | 'portrait' | 'widescreen';
 
+  // Advanced Security Settings (Configurable by Master Admin)
+  securitySessionTimeoutMinutes?: number;
+  securityMaxFailedAttempts?: number;
+  securityLockoutDurationMinutes?: number;
+  securityRequirePINForSensitiveActions?: boolean;
+  securityMasterPIN?: string;
+  securityEnforceTwoFactor?: boolean;
+  securityIpWhitelistEnabled?: boolean;
+  securityAllowedOrigins?: string;
+  securityAuditLogRetentionDays?: number;
+  securityEmailAlertsOnFailedLogin?: boolean;
+
   socialLinks: {
     facebook: string;
     instagram: string;

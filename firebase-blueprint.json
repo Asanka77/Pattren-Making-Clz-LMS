@@ -377,6 +377,36 @@
         "createdAt": { "type": "string" }
       },
       "required": ["studentName", "youtubeUrl", "isApproved"]
+    },
+    "Campaign": {
+      "title": "Campaign",
+      "description": "Facebook and digital ad campaign landing pages",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "slug": { "type": "string", "maxLength": 100 },
+        "title": { "type": "string", "maxLength": 200 },
+        "regularPrice": { "type": "number" },
+        "discountPrice": { "type": "number" },
+        "isPublished": { "type": "boolean" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["slug", "title"]
+    },
+    "CampaignLead": {
+      "title": "CampaignLead",
+      "description": "Leads acquired from campaign landing pages",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "campaignId": { "type": "string", "maxLength": 100 },
+        "fullName": { "type": "string", "maxLength": 150 },
+        "whatsappNumber": { "type": "string", "maxLength": 30 },
+        "status": { "type": "string", "enum": ["NEW", "CONTACTED", "CONVERTED", "LOST"] },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["fullName", "whatsappNumber", "status"]
     }
   },
   "firestore": {
@@ -459,6 +489,14 @@
     "/student_reviews/{reviewId}": {
       "schema": { "$ref": "#/entities/StudentReview" },
       "description": "Student video reviews and testimonials"
+    },
+    "/campaigns/{campaignId}": {
+      "schema": { "$ref": "#/entities/Campaign" },
+      "description": "Campaign landing pages"
+    },
+    "/campaign_leads/{leadId}": {
+      "schema": { "$ref": "#/entities/CampaignLead" },
+      "description": "Leads acquired from campaign forms"
     }
   }
 }

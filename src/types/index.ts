@@ -303,6 +303,89 @@ export interface CampaignPdfResource {
   description?: string;
 }
 
+export interface CampaignDateLine {
+  id: string;
+  label: string;
+  labelSinhala?: string;
+  date: string;
+  highlight?: boolean;
+  description?: string;
+}
+
+export type CampaignCustomFieldType = 'text' | 'number' | 'textarea' | 'select' | 'date';
+
+export interface CampaignCustomField {
+  id: string;
+  label: string;
+  labelSinhala?: string;
+  fieldType: CampaignCustomFieldType;
+  placeholder?: string;
+  placeholderSinhala?: string;
+  required: boolean;
+  options?: string[]; // for dropdown select
+  optionsSinhala?: string[];
+  order?: number;
+}
+
+export interface CampaignFormFieldConfig {
+  showEmail?: boolean;
+  requireEmail?: boolean;
+  showDistrict?: boolean;
+  requireDistrict?: boolean;
+  showCity?: boolean;
+  requireCity?: boolean;
+  showStudyMode?: boolean;
+  requireStudyMode?: boolean;
+  showLocation?: boolean;
+  requireLocation?: boolean;
+  showExperience?: boolean;
+  requireExperience?: boolean;
+  showNotes?: boolean;
+  customFields?: CampaignCustomField[];
+}
+
+export type CampaignCallOutcome =
+  | 'NEW'
+  | 'CALL_ANSWERED'
+  | 'CALL_NO_ANSWER'
+  | 'BUSY_DISCONNECTED'
+  | 'CALLBACK_REQUESTED'
+  | 'INTERESTED'
+  | 'PAYMENT_PENDING'
+  | 'REGISTERED_PAID'
+  | 'NOT_INTERESTED'
+  | 'CONTACTED'
+  | 'ENROLLED'
+  | 'CANCELLED';
+
+export interface CampaignLeadCallLog {
+  id: string;
+  timestamp: string;
+  outcome: CampaignCallOutcome;
+  outcomeLabel?: string;
+  notes: string;
+  callbackDate?: string;
+  loggedBy?: string;
+}
+
+export type CampaignFollowUpStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+export type CampaignFollowUpPriority = 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT';
+
+export interface CampaignLeadFollowUp {
+  id: string;
+  leadId: string;
+  title: string;
+  notes: string;
+  dueDate?: string; // target date/time
+  status: CampaignFollowUpStatus;
+  priority: CampaignFollowUpPriority;
+  assignedTo?: string; // Admin / caller name
+  completedAt?: string;
+  completedNotes?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
 export interface CampaignPage {
   id: string;
   slug: string;
@@ -327,6 +410,11 @@ export interface CampaignPage {
   intakeText?: string;
   intakeTextSinhala?: string;
   countdownEndDate?: string;
+  registrationDeadline?: string;
+  batchStartDate?: string;
+  dateLines?: CampaignDateLine[];
+  formConfig?: CampaignFormFieldConfig;
+  customFields?: CampaignCustomField[];
   spotsLeft?: number;
   whatsappNumber?: string;
   whatsappPrefillText?: string;
@@ -363,7 +451,13 @@ export interface CampaignLead {
   experienceLevel?: string;
   notes?: string;
   paymentSlipUrl?: string;
-  status: 'NEW' | 'CONTACTED' | 'ENROLLED' | 'CANCELLED';
+  status: CampaignCallOutcome | 'NEW' | 'CONTACTED' | 'ENROLLED' | 'CANCELLED';
+  callStatus?: CampaignCallOutcome;
+  lastCallDate?: string;
+  lastCallNotes?: string;
+  callLogs?: CampaignLeadCallLog[];
+  followUps?: CampaignLeadFollowUp[];
+  customFieldResponses?: Record<string, string>;
   adminNotes?: string;
   createdAt: string;
 }

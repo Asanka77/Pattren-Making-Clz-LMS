@@ -141,6 +141,21 @@ service cloud.firestore {
     match /student_reviews/{reviewId} {
       allow read, write: if true;
     }
+
+    // 27. Campaigns Collection
+    match /campaigns/{campaignId} {
+      allow read, write: if true;
+    }
+
+    // 28. Campaign Leads Collection
+    match /campaign_leads/{leadId} {
+      allow read, write: if true;
+    }
+
+    // 29. Test Connection
+    match /test/{testId} {
+      allow read, write: if true;
+    }
   }
 }
 

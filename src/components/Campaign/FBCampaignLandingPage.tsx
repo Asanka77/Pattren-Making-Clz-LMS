@@ -80,6 +80,7 @@ export function FBCampaignLandingPage({
   );
   const [experienceLevel, setExperienceLevel] = useState('Beginner (Zero prior experience)');
   const [notes, setNotes] = useState('');
+  const [customResponses, setCustomResponses] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submittedLead, setSubmittedLead] = useState<CampaignLead | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
@@ -146,6 +147,37 @@ export function FBCampaignLandingPage({
       return;
     }
 
+    const formConfig = campaign?.formConfig;
+    if (formConfig?.requireEmail && !email.trim()) {
+      setFormError(isSinhala ? 'කරුණාකර ඔබගේ විද්‍යුත් තැපෑල (Email) ඇතුළත් කරන්න.' : 'Please enter your email address.');
+      return;
+    }
+    if (formConfig?.requireDistrict && !district.trim()) {
+      setFormError(isSinhala ? 'කරුණාකර ඔබගේ දිස්ත්‍රික්කය ඇතුළත් කරන්න.' : 'Please enter your district.');
+      return;
+    }
+    if (formConfig?.requireCity && !city.trim()) {
+      setFormError(isSinhala ? 'කරුණාකර ඔබගේ නගරය ඇතුළත් කරන්න.' : 'Please enter your nearest city.');
+      return;
+    }
+
+    // Validate dynamic custom fields
+    const dynamicFields = campaign?.customFields || formConfig?.customFields || [];
+    for (const cf of dynamicFields) {
+      if (cf.required) {
+        const val = (customResponses[cf.id] || customResponses[cf.label] || '').trim();
+        if (!val) {
+          const fieldName = isSinhala && cf.labelSinhala ? cf.labelSinhala : cf.label;
+          setFormError(
+            isSinhala
+              ? `කරුණාකර "${fieldName}" අනිවාර්යයෙන් පුරවන්න.`
+              : `Please provide required information for "${cf.label}".`
+          );
+          return;
+        }
+      }
+    }
+
     try {
       setIsSubmitting(true);
       const lead = await submitCampaignLead(campaign?.slug || campaignSlug, {
@@ -161,6 +193,7 @@ export function FBCampaignLandingPage({
         preferredLocation,
         experienceLevel,
         notes: notes.trim(),
+        customFieldResponses: customResponses,
       });
 
       setSubmittedLead(lead);
@@ -366,6 +399,46 @@ export function FBCampaignLandingPage({
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
+
+          {/* Important Milestones & Date Lines Strip */}
+          {(campaign.registrationDeadline || campaign.batchStartDate || (campaign.dateLines && campaign.dateLines.length > 0)) && (
+            <div className="pt-3 border-t border-white/10 flex flex-wrap items-center justify-center gap-2 text-xs font-mono">
+              {campaign.registrationDeadline && (
+                <div className="px-3 py-1.5 rounded bg-[#38070e] border border-red-500/60 text-red-200 flex items-center gap-1.5 shadow">
+                  <Clock className="w-3.5 h-3.5 text-red-400" />
+                  <span>
+                    {isSinhala ? 'ලියාපදිංචිය අවසන් දිනය: ' : 'Registration Deadline: '}
+                    <strong className="text-white font-bold">{campaign.registrationDeadline}</strong>
+                  </span>
+                </div>
+              )}
+              {campaign.batchStartDate && (
+                <div className="px-3 py-1.5 rounded bg-black/70 border border-[#dfb56c]/40 text-[#f7e2a9] flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-[#dfb56c]" />
+                  <span>
+                    {isSinhala ? 'පන්ති ආරම්භය: ' : 'Batch Starts: '}
+                    <strong className="text-white font-bold">{campaign.batchStartDate}</strong>
+                  </span>
+                </div>
+              )}
+              {campaign.dateLines && campaign.dateLines.map((dl) => (
+                <div
+                  key={dl.id}
+                  className={`px-3 py-1.5 rounded border flex items-center gap-1.5 ${
+                    dl.highlight
+                      ? 'bg-[#540d18] border-[#dfb56c] text-[#f7e2a9] font-bold shadow'
+                      : 'bg-black/60 border-white/10 text-[#d5cfc4]'
+                  }`}
+                >
+                  <Sparkles className="w-3 h-3 text-[#dfb56c]" />
+                  <span>
+                    {isSinhala && dl.labelSinhala ? dl.labelSinhala : dl.label}:{' '}
+                    <strong className="text-white font-bold">{dl.date}</strong>
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </section>
 
         {/* ========================================================= */}
@@ -726,155 +799,310 @@ export function FBCampaignLandingPage({
               </div>
             </div>
           ) : (
-            <form onSubmit={handleSubmitLead} className="space-y-4">
-              {formError && (
-                <div className="p-3 rounded bg-red-950/80 border border-red-500/80 text-red-200 text-xs flex items-center gap-2 font-sinhala">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                  <span>{formError}</span>
-                </div>
-              )}
+            <div className="space-y-5">
+              {/* Key Date Lines & Registration Deadlines Notice above Form */}
+              {(campaign.registrationDeadline || campaign.batchStartDate || (campaign.dateLines && campaign.dateLines.length > 0)) && (
+                <div className="p-4 rounded-lg bg-[#251216] border border-[#dfb56c]/70 shadow-xl space-y-2.5">
+                  <div className="flex items-center gap-2 text-[#dfb56c] font-mono text-xs font-bold uppercase tracking-wider">
+                    <Calendar className="w-4 h-4 text-[#dfb56c]" />
+                    <span>{isSinhala ? 'වැදගත් දින වකවානු සහ කාලසීමාවන් (Key Deadlines):' : 'Key Deadlines & Schedule Milestones:'}</span>
+                  </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* Full Name */}
-                <div>
-                  <label className="block text-xs font-mono uppercase tracking-wider text-[#dfb56c] mb-1.5 font-bold">
-                    {isSinhala ? 'සම්පූර්ණ නම (Full Name) *' : 'Full Name *'}
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    placeholder="e.g. Nimasha Perera"
-                    className="w-full px-3.5 py-2.5 rounded-sm bg-[#0c0709] border border-white/20 text-xs text-white focus:border-[#dfb56c] outline-none"
-                  />
-                </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-mono">
+                    {campaign.registrationDeadline && (
+                      <div className="p-2.5 rounded bg-black/70 border border-red-500/50 flex items-center justify-between text-red-200 shadow">
+                        <span className="flex items-center gap-1.5">
+                          <Clock className="w-3.5 h-3.5 text-red-400" />
+                          <span>{isSinhala ? 'ලියාපදිංචිය අවසන් දිනය:' : 'Registration Closes:'}</span>
+                        </span>
+                        <strong className="text-white bg-red-950 px-2 py-0.5 rounded border border-red-500 font-bold">
+                          {campaign.registrationDeadline}
+                        </strong>
+                      </div>
+                    )}
 
-                {/* WhatsApp Mobile Number */}
-                <div>
-                  <label className="block text-xs font-mono uppercase tracking-wider text-[#dfb56c] mb-1.5 font-bold">
-                    {isSinhala ? 'WhatsApp දුරකථන අංකය *' : 'WhatsApp Number *'}
-                  </label>
-                  <input
-                    type="tel"
-                    required
-                    value={whatsappNumber}
-                    onChange={(e) => setWhatsappNumber(e.target.value)}
-                    placeholder="e.g. 0771234567"
-                    className="w-full px-3.5 py-2.5 rounded-sm bg-[#0c0709] border border-white/20 text-xs text-white focus:border-[#dfb56c] outline-none font-mono"
-                  />
-                </div>
-              </div>
+                    {campaign.batchStartDate && (
+                      <div className="p-2.5 rounded bg-black/70 border border-[#dfb56c]/40 flex items-center justify-between text-[#f7e2a9] shadow">
+                        <span className="flex items-center gap-1.5">
+                          <Sparkles className="w-3.5 h-3.5 text-[#dfb56c]" />
+                          <span>{isSinhala ? 'පන්ති ආරම්භක දිනය:' : 'Batch Commencement:'}</span>
+                        </span>
+                        <strong className="text-white bg-[#38070e] px-2 py-0.5 rounded border border-[#dfb56c] font-bold">
+                          {campaign.batchStartDate}
+                        </strong>
+                      </div>
+                    )}
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                {/* District */}
-                <div>
-                  <label className="block text-xs font-mono uppercase tracking-wider text-[#dfb56c] mb-1.5 font-bold">
-                    {isSinhala ? 'දිස්ත්‍රික්කය (District)' : 'District'}
-                  </label>
-                  <input
-                    type="text"
-                    value={district}
-                    onChange={(e) => setDistrict(e.target.value)}
-                    placeholder="e.g. Kurunegala / Colombo"
-                    className="w-full px-3.5 py-2.5 rounded-sm bg-[#0c0709] border border-white/20 text-xs text-white focus:border-[#dfb56c] outline-none"
-                  />
-                </div>
-
-                {/* City / Nearest Town */}
-                <div>
-                  <label className="block text-xs font-mono uppercase tracking-wider text-[#dfb56c] mb-1.5 font-bold">
-                    {isSinhala ? 'නගරය (Nearest City)' : 'City / Town'}
-                  </label>
-                  <input
-                    type="text"
-                    value={city}
-                    onChange={(e) => setCity(e.target.value)}
-                    placeholder="e.g. Kegalle / Kandy"
-                    className="w-full px-3.5 py-2.5 rounded-sm bg-[#0c0709] border border-white/20 text-xs text-white focus:border-[#dfb56c] outline-none"
-                  />
-                </div>
-
-                {/* Study Mode */}
-                <div>
-                  <label className="block text-xs font-mono uppercase tracking-wider text-[#dfb56c] mb-1.5 font-bold">
-                    {isSinhala ? 'ඉගෙනුම් ක්‍රමය (Study Mode)' : 'Study Mode'}
-                  </label>
-                  <select
-                    value={studyMode}
-                    onChange={(e) => setStudyMode(e.target.value as any)}
-                    className="w-full px-3.5 py-2.5 rounded-sm bg-[#0c0709] border border-white/20 text-xs text-white focus:border-[#dfb56c] outline-none"
-                  >
-                    <option value="PHYSICAL">Physical Atelier Workshops (ප්‍රායෝගික වැඩමුළු)</option>
-                    <option value="ZOOM">Live Zoom Interactive (සජීවී ඔන්ලයින් පන්ති)</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Preferred Location Selection */}
-              {campaign.allowedLocations && campaign.allowedLocations.length > 0 && (
-                <div>
-                  <label className="block text-xs font-mono uppercase tracking-wider text-[#dfb56c] mb-1.5 font-bold">
-                    {isSinhala ? 'කැමති ශාඛාව හෝ කණ්ඩායම (Preferred Branch) *' : 'Preferred Campus Branch *'}
-                  </label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                    {campaign.allowedLocations.map((loc) => (
-                      <label
-                        key={loc}
-                        className={`p-3 rounded-lg border transition-all cursor-pointer flex items-center justify-between ${
-                          preferredLocation === loc
-                            ? 'bg-[#540d18] border-[#dfb56c] text-[#f7e2a9] font-bold shadow'
-                            : 'bg-[#0c0709] border-white/10 text-[#a89f91] hover:text-white'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <MapPin className="w-3.5 h-3.5 text-[#dfb56c]" />
-                          <span>{loc}</span>
+                    {campaign.dateLines &&
+                      campaign.dateLines.map((dl) => (
+                        <div
+                          key={dl.id}
+                          className={`p-2.5 rounded border flex items-center justify-between shadow ${
+                            dl.highlight
+                              ? 'bg-[#38070e] border-[#dfb56c] text-[#f7e2a9] font-bold'
+                              : 'bg-black/70 border-white/10 text-[#d5cfc4]'
+                          }`}
+                        >
+                          <span className="truncate pr-2">
+                            {isSinhala && dl.labelSinhala ? dl.labelSinhala : dl.label}
+                          </span>
+                          <strong className="text-white shrink-0 font-mono bg-black/50 px-2 py-0.5 rounded">
+                            {dl.date}
+                          </strong>
                         </div>
-                        <input
-                          type="radio"
-                          name="campaignLocation"
-                          value={loc}
-                          checked={preferredLocation === loc}
-                          onChange={() => setPreferredLocation(loc)}
-                          className="accent-[#dfb56c]"
-                        />
-                      </label>
-                    ))}
+                      ))}
                   </div>
                 </div>
               )}
 
-              {/* Prior Experience */}
-              <div>
-                <label className="block text-xs font-mono uppercase tracking-wider text-[#dfb56c] mb-1.5 font-bold">
-                  {isSinhala ? 'මැහුම් හෝ විලාසිතා පිළිබඳ පූර්ව දැනුම' : 'Prior Sewing Experience'}
-                </label>
-                <select
-                  value={experienceLevel}
-                  onChange={(e) => setExperienceLevel(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-sm bg-[#0c0709] border border-white/20 text-xs text-white focus:border-[#dfb56c] outline-none"
-                >
-                  <option value="Beginner (Zero prior experience)">Beginner (කිසිදු පූර්ව දැනුමක් නැත - මුලසිටම ඉගෙනුමට)</option>
-                  <option value="Basic Machine knowledge">Basic (සාමාන්‍ය මැහුම් යන්ත්‍රය භාවිතා කළ හැක)</option>
-                  <option value="Intermediate tailor / dressmaker">Intermediate (ගෙදර දොරේ ඇඳුම් මැසීමේ පළපුරුද්ද ඇත)</option>
-                  <option value="Running a small sewing business">Advanced (දැනටමත් ඇඳුම් ව්‍යාපාරයක් කරගෙන යයි)</option>
-                </select>
-              </div>
+              <form onSubmit={handleSubmitLead} className="space-y-4">
+                {formError && (
+                  <div className="p-3 rounded bg-red-950/80 border border-red-500/80 text-red-200 text-xs flex items-center gap-2 font-sinhala">
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    <span>{formError}</span>
+                  </div>
+                )}
 
-              {/* Notes */}
-              <div>
-                <label className="block text-xs font-mono uppercase tracking-wider text-[#dfb56c] mb-1.5 font-bold">
-                  {isSinhala ? 'විශේෂ සටහන් හෝ ප්‍රශ්න (Optional Notes)' : 'Questions or Special Notes (Optional)'}
-                </label>
-                <textarea
-                  rows={2}
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder={isSinhala ? 'ඔබට දැනගැනීමට අවශ්‍ය වෙනත් යමක් ඇත්නම් මෙහි සටහන් කරන්න...' : 'Any questions regarding weekend dates, installments, or travel arrangements...'}
-                  className="w-full px-3.5 py-2 rounded-sm bg-[#0c0709] border border-white/20 text-xs text-white focus:border-[#dfb56c] outline-none"
-                />
-              </div>
+                {/* Always Mandatory: Full Name & WhatsApp Phone */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Full Name */}
+                  <div>
+                    <label className="block text-xs font-mono uppercase tracking-wider text-[#dfb56c] mb-1.5 font-bold">
+                      {isSinhala ? 'සම්පූර්ණ නම (Full Name) *' : 'Full Name *'}
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      placeholder="e.g. Nimasha Perera"
+                      className="w-full px-3.5 py-2.5 rounded-sm bg-[#0c0709] border border-white/20 text-xs text-white focus:border-[#dfb56c] outline-none"
+                    />
+                  </div>
+
+                  {/* WhatsApp Mobile Number */}
+                  <div>
+                    <label className="block text-xs font-mono uppercase tracking-wider text-[#dfb56c] mb-1.5 font-bold">
+                      {isSinhala ? 'WhatsApp දුරකථන අංකය *' : 'WhatsApp Number *'}
+                    </label>
+                    <input
+                      type="tel"
+                      required
+                      value={whatsappNumber}
+                      onChange={(e) => setWhatsappNumber(e.target.value)}
+                      placeholder="e.g. 0771234567"
+                      className="w-full px-3.5 py-2.5 rounded-sm bg-[#0c0709] border border-white/20 text-xs text-white focus:border-[#dfb56c] outline-none font-mono"
+                    />
+                  </div>
+                </div>
+
+                {/* Email (If configured to show) */}
+                {campaign.formConfig?.showEmail !== false && (
+                  <div>
+                    <label className="block text-xs font-mono uppercase tracking-wider text-[#dfb56c] mb-1.5 font-bold">
+                      {isSinhala ? 'විද්‍යුත් තැපෑල (Email Address)' : 'Email Address'}
+                      {campaign.formConfig?.requireEmail && ' *'}
+                    </label>
+                    <input
+                      type="email"
+                      required={campaign.formConfig?.requireEmail}
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="e.g. nimasha@gmail.com"
+                      className="w-full px-3.5 py-2.5 rounded-sm bg-[#0c0709] border border-white/20 text-xs text-white focus:border-[#dfb56c] outline-none font-mono"
+                    />
+                  </div>
+                )}
+
+                {/* District, City, and Study Mode Row */}
+                {(campaign.formConfig?.showDistrict !== false ||
+                  campaign.formConfig?.showCity !== false ||
+                  campaign.formConfig?.showStudyMode !== false) && (
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    {/* District */}
+                    {campaign.formConfig?.showDistrict !== false && (
+                      <div>
+                        <label className="block text-xs font-mono uppercase tracking-wider text-[#dfb56c] mb-1.5 font-bold">
+                          {isSinhala ? 'දිස්ත්‍රික්කය (District)' : 'District'}
+                          {campaign.formConfig?.requireDistrict && ' *'}
+                        </label>
+                        <input
+                          type="text"
+                          required={campaign.formConfig?.requireDistrict}
+                          value={district}
+                          onChange={(e) => setDistrict(e.target.value)}
+                          placeholder="e.g. Kurunegala / Colombo"
+                          className="w-full px-3.5 py-2.5 rounded-sm bg-[#0c0709] border border-white/20 text-xs text-white focus:border-[#dfb56c] outline-none"
+                        />
+                      </div>
+                    )}
+
+                    {/* City / Nearest Town */}
+                    {campaign.formConfig?.showCity !== false && (
+                      <div>
+                        <label className="block text-xs font-mono uppercase tracking-wider text-[#dfb56c] mb-1.5 font-bold">
+                          {isSinhala ? 'නගරය (Nearest City)' : 'City / Town'}
+                          {campaign.formConfig?.requireCity && ' *'}
+                        </label>
+                        <input
+                          type="text"
+                          required={campaign.formConfig?.requireCity}
+                          value={city}
+                          onChange={(e) => setCity(e.target.value)}
+                          placeholder="e.g. Kegalle / Kandy"
+                          className="w-full px-3.5 py-2.5 rounded-sm bg-[#0c0709] border border-white/20 text-xs text-white focus:border-[#dfb56c] outline-none"
+                        />
+                      </div>
+                    )}
+
+                    {/* Study Mode */}
+                    {campaign.formConfig?.showStudyMode !== false && (
+                      <div>
+                        <label className="block text-xs font-mono uppercase tracking-wider text-[#dfb56c] mb-1.5 font-bold">
+                          {isSinhala ? 'ඉගෙනුම් ක්‍රමය (Study Mode)' : 'Study Mode'}
+                          {campaign.formConfig?.requireStudyMode && ' *'}
+                        </label>
+                        <select
+                          value={studyMode}
+                          onChange={(e) => setStudyMode(e.target.value as any)}
+                          className="w-full px-3.5 py-2.5 rounded-sm bg-[#0c0709] border border-white/20 text-xs text-white focus:border-[#dfb56c] outline-none"
+                        >
+                          <option value="PHYSICAL">Physical Atelier Workshops (ප්‍රායෝගික වැඩමුළු)</option>
+                          <option value="ZOOM">Live Zoom Interactive (සජීවී ඔන්ලයින් පන්ති)</option>
+                        </select>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Preferred Location Selection */}
+                {campaign.formConfig?.showLocation !== false &&
+                  campaign.allowedLocations &&
+                  campaign.allowedLocations.length > 0 && (
+                    <div>
+                      <label className="block text-xs font-mono uppercase tracking-wider text-[#dfb56c] mb-1.5 font-bold">
+                        {isSinhala ? 'කැමති ශාඛාව හෝ කණ්ඩායම (Preferred Branch) *' : 'Preferred Campus Branch *'}
+                      </label>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                        {campaign.allowedLocations.map((loc) => (
+                          <label
+                            key={loc}
+                            className={`p-3 rounded-lg border transition-all cursor-pointer flex items-center justify-between ${
+                              preferredLocation === loc
+                                ? 'bg-[#540d18] border-[#dfb56c] text-[#f7e2a9] font-bold shadow'
+                                : 'bg-[#0c0709] border-white/10 text-[#a89f91] hover:text-white'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <MapPin className="w-3.5 h-3.5 text-[#dfb56c]" />
+                              <span>{loc}</span>
+                            </div>
+                            <input
+                              type="radio"
+                              name="campaignLocation"
+                              value={loc}
+                              checked={preferredLocation === loc}
+                              onChange={() => setPreferredLocation(loc)}
+                              className="accent-[#dfb56c]"
+                            />
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                {/* Prior Experience */}
+                {campaign.formConfig?.showExperience !== false && (
+                  <div>
+                    <label className="block text-xs font-mono uppercase tracking-wider text-[#dfb56c] mb-1.5 font-bold">
+                      {isSinhala ? 'මැහුම් හෝ විලාසිතා පිළිබඳ පූර්ව දැනුම' : 'Prior Sewing Experience'}
+                      {campaign.formConfig?.requireExperience && ' *'}
+                    </label>
+                    <select
+                      value={experienceLevel}
+                      onChange={(e) => setExperienceLevel(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-sm bg-[#0c0709] border border-white/20 text-xs text-white focus:border-[#dfb56c] outline-none"
+                    >
+                      <option value="Beginner (Zero prior experience)">Beginner (කිසිදු පූර්ව දැනුමක් නැත - මුලසිටම ඉගෙනුමට)</option>
+                      <option value="Basic Machine knowledge">Basic (සාමාන්‍ය මැහුම් යන්ත්‍රය භාවිතා කළ හැක)</option>
+                      <option value="Intermediate tailor / dressmaker">Intermediate (ගෙදර දොරේ ඇඳුම් මැසීමේ පළපුරුද්ද ඇත)</option>
+                      <option value="Running a small sewing business">Advanced (දැනටමත් ඇඳුම් ව්‍යාපාරයක් කරගෙන යයි)</option>
+                    </select>
+                  </div>
+                )}
+
+                {/* Dynamic Custom Fields configured by Admin in Form Customizer */}
+                {((campaign.customFields && campaign.customFields.length > 0) || (campaign.formConfig?.customFields && campaign.formConfig.customFields.length > 0)) && (
+                  <div className="space-y-4 pt-1">
+                    {(campaign.customFields || campaign.formConfig?.customFields || []).map((cf) => {
+                      const fieldLabel = isSinhala && cf.labelSinhala ? cf.labelSinhala : cf.label;
+                      const fieldPlaceholder = isSinhala && cf.placeholderSinhala ? cf.placeholderSinhala : cf.placeholder;
+                      const val = customResponses[cf.id] || customResponses[cf.label] || '';
+
+                      return (
+                        <div key={cf.id}>
+                          <label className="block text-xs font-mono uppercase tracking-wider text-[#dfb56c] mb-1.5 font-bold">
+                            {fieldLabel}
+                            {cf.required && ' *'}
+                          </label>
+
+                          {cf.fieldType === 'textarea' ? (
+                            <textarea
+                              rows={2}
+                              value={val}
+                              onChange={(e) =>
+                                setCustomResponses((prev) => ({ ...prev, [cf.id]: e.target.value, [cf.label]: e.target.value }))
+                              }
+                              placeholder={fieldPlaceholder || ''}
+                              className="w-full px-3.5 py-2 rounded-sm bg-[#0c0709] border border-white/20 text-xs text-white focus:border-[#dfb56c] outline-none"
+                            />
+                          ) : cf.fieldType === 'select' ? (
+                            <select
+                              value={val}
+                              onChange={(e) =>
+                                setCustomResponses((prev) => ({ ...prev, [cf.id]: e.target.value, [cf.label]: e.target.value }))
+                              }
+                              className="w-full px-3.5 py-2.5 rounded-sm bg-[#0c0709] border border-white/20 text-xs text-white focus:border-[#dfb56c] outline-none"
+                            >
+                              <option value="">{isSinhala ? '-- කරුණාකර තෝරන්න --' : '-- Please Select --'}</option>
+                              {(cf.options || []).map((opt) => (
+                                <option key={opt} value={opt}>
+                                  {opt}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            <input
+                              type={cf.fieldType === 'number' ? 'number' : cf.fieldType === 'date' ? 'date' : 'text'}
+                              value={val}
+                              onChange={(e) =>
+                                setCustomResponses((prev) => ({ ...prev, [cf.id]: e.target.value, [cf.label]: e.target.value }))
+                              }
+                              placeholder={fieldPlaceholder || ''}
+                              className="w-full px-3.5 py-2.5 rounded-sm bg-[#0c0709] border border-white/20 text-xs text-white focus:border-[#dfb56c] outline-none font-sans"
+                            />
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Notes */}
+                {campaign.formConfig?.showNotes !== false && (
+                  <div>
+                    <label className="block text-xs font-mono uppercase tracking-wider text-[#dfb56c] mb-1.5 font-bold">
+                      {isSinhala ? 'විශේෂ සටහන් හෝ ප්‍රශ්න (Optional Notes)' : 'Questions or Special Notes (Optional)'}
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      placeholder={isSinhala ? 'ඔබට දැනගැනීමට අවශ්‍ය වෙනත් යමක් ඇත්නම් මෙහි සටහන් කරන්න...' : 'Any questions regarding weekend dates, installments, or travel arrangements...'}
+                      className="w-full px-3.5 py-2 rounded-sm bg-[#0c0709] border border-white/20 text-xs text-white focus:border-[#dfb56c] outline-none"
+                    />
+                  </div>
+                )}
 
               {/* Submit CTA Button */}
               <div className="pt-2">
@@ -899,7 +1127,8 @@ export function FBCampaignLandingPage({
                 </div>
               </div>
             </form>
-          )}
+          </div>
+        )}
         </section>
       </main>
 

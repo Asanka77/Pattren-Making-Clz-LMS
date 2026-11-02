@@ -46,6 +46,12 @@ import {
   StudentReviewItem,
   CampaignPage,
   CampaignLead,
+  CampaignCallOutcome,
+  CampaignLeadCallLog,
+  CampaignDateLine,
+  CampaignFormFieldConfig,
+  CampaignCustomField,
+  CampaignLeadFollowUp,
 } from '../types';
 import {
   DEFAULT_SITE_SETTINGS,
@@ -151,6 +157,27 @@ interface DataContextType {
   deleteCampaign: (id: string) => Promise<void>;
   submitCampaignLead: (campaignSlug: string, leadData: Omit<CampaignLead, 'id' | 'createdAt' | 'status'>) => Promise<CampaignLead>;
   updateCampaignLeadStatus: (id: string, status: CampaignLead['status'], notes?: string) => Promise<void>;
+  updateCampaignLead: (id: string, updates: Partial<CampaignLead>) => Promise<void>;
+  logCampaignLeadCall: (
+    leadId: string,
+    outcome: CampaignCallOutcome,
+    notes: string,
+    callbackDate?: string,
+    callerName?: string
+  ) => Promise<void>;
+  addCampaignLeadFollowUp: (
+    leadId: string,
+    followUp: Omit<CampaignLeadFollowUp, 'id' | 'leadId' | 'createdAt'>
+  ) => Promise<CampaignLeadFollowUp>;
+  updateCampaignLeadFollowUp: (
+    leadId: string,
+    followUpId: string,
+    updates: Partial<CampaignLeadFollowUp>
+  ) => Promise<void>;
+  deleteCampaignLeadFollowUp: (
+    leadId: string,
+    followUpId: string
+  ) => Promise<void>;
   deleteCampaignLead: (id: string) => Promise<void>;
   saveStudentReview: (rev: Partial<StudentReviewItem> & { studentName: string; youtubeUrl: string }) => Promise<void>;
   deleteStudentReview: (id: string) => Promise<void>;
@@ -193,6 +220,22 @@ interface DataContextType {
   addCommentToCommunityPost: (postId: string, comment: Omit<CommunityComment, 'id' | 'createdAt'>) => Promise<void>;
   deleteCommunityPost: (postId: string) => Promise<void>;
   resetToDefaults: () => Promise<void>;
+}
+
+// Deeply cleans an object or array to ensure no undefined fields are passed to Firestore
+export function cleanForFirestore<T>(data: T): any {
+  if (data === undefined) return null;
+  if (data === null || typeof data !== 'object') return data;
+  if (Array.isArray(data)) {
+    return data.map((item) => cleanForFirestore(item));
+  }
+  const result: Record<string, any> = {};
+  for (const [key, val] of Object.entries(data)) {
+    if (val !== undefined) {
+      result[key] = cleanForFirestore(val);
+    }
+  }
+  return result;
 }
 
 const DataContext = createContext<DataContextType | null>(null);
@@ -314,12 +357,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       sortFn?: (a: T, b: T) => number
     ) => {
       try {
-        const initializedKey = `css_${colName}_synced_v2`;
+        const initializedKey = `css_${colName}_synced_v3`;
         const unsub = onSnapshot(
           collection(db, colName),
           (snapshot) => {
             if (!isMounted) return;
-            const isAlreadySynced = localStorage.getItem(initializedKey) === 'true';
 
             if (!snapshot.empty) {
               let items = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as unknown as T));
@@ -333,19 +375,19 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 }
               } catch (_) {}
             } else {
-              // Handle empty collection: seed on initial setup if never initialized, otherwise preserve empty
-              if (!isAlreadySynced && defaultSeed && defaultSeed.length > 0) {
-                let seedItems = defaultSeed;
-                try {
-                  const saved = localStorage.getItem(`css_${colName}`) || (colName === 'youtube_videos' ? localStorage.getItem('css_videos') : null);
-                  if (saved) {
-                    const parsed = JSON.parse(saved);
-                    if (Array.isArray(parsed) && parsed.length > 0) {
-                      seedItems = parsed;
-                    }
+              // If collection in Firestore is empty, seed Firestore from cache or defaults
+              let seedItems = defaultSeed || [];
+              try {
+                const saved = localStorage.getItem(`css_${colName}`) || (colName === 'youtube_videos' ? localStorage.getItem('css_videos') : null);
+                if (saved) {
+                  const parsed = JSON.parse(saved);
+                  if (Array.isArray(parsed) && parsed.length > 0) {
+                    seedItems = parsed;
                   }
-                } catch (_) {}
+                }
+              } catch (_) {}
 
+              if (seedItems && seedItems.length > 0) {
                 setter(seedItems);
                 try {
                   localStorage.setItem(`css_${colName}`, JSON.stringify(seedItems));
@@ -355,20 +397,18 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
                   }
                 } catch (_) {}
 
-                // Populate Firestore with initial seed items in background
-                seedItems.forEach((item: any) => {
+                // Upload each seed item cleaned to Firestore so Firestore is populated
+                seedItems.forEach(async (item: any) => {
                   if (item && item.id) {
-                    setDoc(doc(db, colName, item.id), item, { merge: true }).catch(() => {});
+                    try {
+                      await setDoc(doc(db, colName, item.id), cleanForFirestore(item), { merge: true });
+                    } catch (e) {
+                      console.warn(`Error seeding ${colName}/${item.id}:`, e);
+                    }
                   }
                 });
               } else {
                 setter([]);
-                try {
-                  localStorage.setItem(`css_${colName}`, JSON.stringify([]));
-                  if (colName === 'youtube_videos') {
-                    localStorage.setItem('css_videos', JSON.stringify([]));
-                  }
-                } catch (_) {}
               }
             }
           },
@@ -386,7 +426,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const unsubSettings = onSnapshot(
         collection(db, 'site_settings'),
-        (snapshot) => {
+        async (snapshot) => {
           if (!isMounted) return;
           if (!snapshot.empty) {
             const mainDoc = snapshot.docs.find((d) => d.id === 'main') || snapshot.docs[0];
@@ -405,7 +445,12 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 initialSettings = { ...DEFAULT_SITE_SETTINGS, ...JSON.parse(saved) };
               }
             } catch (_) {}
-            setDoc(doc(db, 'site_settings', 'main'), initialSettings, { merge: true }).catch(() => {});
+            setSiteSettings(initialSettings);
+            try {
+              await setDoc(doc(db, 'site_settings', 'main'), cleanForFirestore(initialSettings), { merge: true });
+            } catch (err) {
+              console.warn('Could not seed site_settings to Firestore:', err);
+            }
           }
         },
         (err) => console.warn('site_settings sync fallback notice:', err)
@@ -1417,14 +1462,14 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           localStorage.setItem('css_courses', JSON.stringify(next));
         } catch (_) {}
         if (next[0]) {
-          setDoc(doc(db, 'courses', next[0].id), next[0], { merge: true }).catch(() => {});
+          setDoc(doc(db, 'courses', next[0].id), cleanForFirestore(next[0]), { merge: true }).catch(() => {});
         }
         return next;
       });
     }
 
     try {
-      await setDoc(doc(db, 'site_settings', 'main'), updated, { merge: true });
+      await setDoc(doc(db, 'site_settings', 'main'), cleanForFirestore(updated), { merge: true });
     } catch (err) {
       console.warn('Firestore site_settings update notice:', err);
     }
@@ -1450,7 +1495,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.setItem('css_course_modules', JSON.stringify(nextModules));
     } catch (_) {}
     try {
-      await setDoc(doc(db, 'course_modules', id), item, { merge: true });
+      await setDoc(doc(db, 'course_modules', id), cleanForFirestore(item), { merge: true });
     } catch (err) {
       console.warn('Could not save course_modules to Firestore:', err);
     }
@@ -1491,7 +1536,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.setItem('css_why_features', JSON.stringify(nextWhy));
     } catch (_) {}
     try {
-      await setDoc(doc(db, 'why_features', id), item, { merge: true });
+      await setDoc(doc(db, 'why_features', id), cleanForFirestore(item), { merge: true });
     } catch (err) {
       console.warn('Could not save why_features to Firestore:', err);
     }
@@ -1571,10 +1616,29 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.setItem('css_courses', JSON.stringify(nextCourses));
     } catch (_) {}
     try {
-      await setDoc(doc(db, 'courses', id), item, { merge: true });
+      await setDoc(doc(db, 'courses', id), cleanForFirestore(item), { merge: true });
     } catch (err) {
       console.warn('Could not save courses to Firestore:', err);
     }
+
+    // If this is the primary course or fees were modified, sync with siteSettings as well
+    if (nextCourses[0]?.id === id || course.id === 'course-01' || nextCourses.length === 1) {
+      if (item.physicalFee !== siteSettings.physicalFee || item.zoomFee !== siteSettings.zoomFee || item.registrationFee !== siteSettings.registrationFee) {
+        const syncedSettings: SiteSettings = {
+          ...siteSettings,
+          physicalFee: item.physicalFee,
+          zoomFee: item.zoomFee,
+          registrationFee: item.registrationFee,
+          updatedAt: new Date().toISOString(),
+        };
+        setSiteSettings(syncedSettings);
+        try {
+          localStorage.setItem('css_site_settings', JSON.stringify(syncedSettings));
+          setDoc(doc(db, 'site_settings', 'main'), cleanForFirestore(syncedSettings), { merge: true }).catch(() => {});
+        } catch (_) {}
+      }
+    }
+
     addAuditLog('Course Saved', `Course "${item.title}" saved.`);
   };
 
@@ -1645,7 +1709,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.setItem('css_custom_forms', JSON.stringify(nextForms));
     } catch (_) {}
     try {
-      await setDoc(doc(db, 'custom_forms', id), item, { merge: true });
+      await setDoc(doc(db, 'custom_forms', id), cleanForFirestore(item), { merge: true });
     } catch (err) {
       console.warn('Could not save custom_forms to Firestore:', err);
     }
@@ -1680,7 +1744,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     try {
-      await setDoc(doc(db, 'form_submissions', id), submission, { merge: true });
+      await setDoc(doc(db, 'form_submissions', id), cleanForFirestore(submission), { merge: true });
     } catch (err) {
       console.warn('Firestore form_submissions save error:', err);
     }
@@ -1695,7 +1759,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       prev.map((s) => (s.id === id ? { ...s, status, notes: notes !== undefined ? notes : s.notes } : s))
     );
     try {
-      await setDoc(doc(db, 'form_submissions', id), { status, notes }, { merge: true });
+      await setDoc(doc(db, 'form_submissions', id), cleanForFirestore({ status, notes }), { merge: true });
     } catch (err) {
       console.warn('Firestore form_submissions update notice:', err);
     }
@@ -1741,6 +1805,26 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       intakeText: campaign.intakeText || '2026 Academic Intake',
       intakeTextSinhala: campaign.intakeTextSinhala || '2026 නව බඳවා ගැනීම්',
       countdownEndDate: campaign.countdownEndDate || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      registrationDeadline: campaign.registrationDeadline,
+      batchStartDate: campaign.batchStartDate,
+      dateLines: campaign.dateLines || [],
+      formConfig: campaign.formConfig || {
+        showEmail: true,
+        requireEmail: false,
+        showDistrict: true,
+        requireDistrict: false,
+        showCity: true,
+        requireCity: false,
+        showStudyMode: true,
+        requireStudyMode: true,
+        showLocation: true,
+        requireLocation: true,
+        showExperience: true,
+        requireExperience: false,
+        showNotes: true,
+        customFields: campaign.customFields || [],
+      },
+      customFields: campaign.customFields || (campaign as any).formConfig?.customFields || [],
       spotsLeft: campaign.spotsLeft ?? 8,
       whatsappNumber: campaign.whatsappNumber || '+94703755312',
       whatsappPrefillText: campaign.whatsappPrefillText || `Hello Ceylon Style Studio, I am interested in registering for ${campaign.title}!`,
@@ -1770,7 +1854,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.setItem('css_campaigns', JSON.stringify(nextCampaigns));
     } catch (_) {}
     try {
-      await setDoc(doc(db, 'campaigns', id), item, { merge: true });
+      await setDoc(doc(db, 'campaigns', id), cleanForFirestore(item), { merge: true });
     } catch (err) {
       console.warn('Could not save campaign to Firestore:', err);
     }
@@ -1805,11 +1889,15 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       campaignSlug,
       campaignTitle: targetCampaign?.title || leadData.campaignTitle || 'Facebook Campaign',
       status: 'NEW',
+      callStatus: 'NEW',
+      callLogs: [],
+      followUps: [],
+      customFieldResponses: leadData.customFieldResponses || {},
       createdAt: timestamp,
     };
 
     try {
-      await setDoc(doc(db, 'campaign_leads', id), lead, { merge: true });
+      await setDoc(doc(db, 'campaign_leads', id), cleanForFirestore(lead), { merge: true });
     } catch (err) {
       console.warn('Firestore campaign_leads save notice:', err);
     }
@@ -1837,13 +1925,171 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     notes?: string
   ) => {
     setCampaignLeads((prev) =>
-      prev.map((l) => (l.id === id ? { ...l, status, adminNotes: notes !== undefined ? notes : l.adminNotes } : l))
+      prev.map((l) => (l.id === id ? { ...l, status, callStatus: status, adminNotes: notes !== undefined ? notes : l.adminNotes } : l))
     );
     try {
-      await setDoc(doc(db, 'campaign_leads', id), { status, adminNotes: notes }, { merge: true });
+      await setDoc(doc(db, 'campaign_leads', id), cleanForFirestore({ status, callStatus: status, adminNotes: notes }), { merge: true });
     } catch (err) {
       console.warn('Firestore campaign_leads update notice:', err);
     }
+  };
+
+  const updateCampaignLead = async (id: string, updates: Partial<CampaignLead>) => {
+    setCampaignLeads((prev) =>
+      prev.map((l) => (l.id === id ? { ...l, ...updates } : l))
+    );
+    try {
+      await setDoc(doc(db, 'campaign_leads', id), cleanForFirestore(updates), { merge: true });
+    } catch (err) {
+      console.warn('Firestore campaign_leads update notice:', err);
+    }
+  };
+
+  const logCampaignLeadCall = async (
+    leadId: string,
+    outcome: CampaignCallOutcome,
+    notes: string,
+    callbackDate?: string,
+    callerName?: string
+  ) => {
+    const timestamp = new Date().toISOString();
+    const newLog: CampaignLeadCallLog = {
+      id: `call-${Date.now()}`,
+      timestamp,
+      outcome,
+      notes,
+      callbackDate,
+      loggedBy: callerName || 'Admin Desk',
+    };
+
+    let updatedLogs: CampaignLeadCallLog[] = [newLog];
+    setCampaignLeads((prev) =>
+      prev.map((l) => {
+        if (l.id !== leadId) return l;
+        const currentLogs = l.callLogs || [];
+        updatedLogs = [newLog, ...currentLogs];
+        return {
+          ...l,
+          status: outcome,
+          callStatus: outcome,
+          lastCallDate: timestamp,
+          lastCallNotes: notes,
+          callLogs: updatedLogs,
+        };
+      })
+    );
+
+    try {
+      await setDoc(
+        doc(db, 'campaign_leads', leadId),
+        cleanForFirestore({
+          status: outcome,
+          callStatus: outcome,
+          lastCallDate: timestamp,
+          lastCallNotes: notes,
+          callLogs: updatedLogs,
+        }),
+        { merge: true }
+      );
+    } catch (err) {
+      console.warn('Firestore logCampaignLeadCall error:', err);
+    }
+
+    addAuditLog('Lead Call Logged', `Lead ID ${leadId} status set to ${outcome} with notes: ${notes.slice(0, 40)}`);
+  };
+
+  const addCampaignLeadFollowUp = async (
+    leadId: string,
+    followUpData: Omit<CampaignLeadFollowUp, 'id' | 'leadId' | 'createdAt'>
+  ): Promise<CampaignLeadFollowUp> => {
+    const timestamp = new Date().toISOString();
+    const id = `fu-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+    const newFollowUp: CampaignLeadFollowUp = {
+      ...followUpData,
+      id,
+      leadId,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+
+    let updatedList: CampaignLeadFollowUp[] = [newFollowUp];
+    setCampaignLeads((prev) =>
+      prev.map((l) => {
+        if (l.id !== leadId) return l;
+        const currentList = l.followUps || [];
+        updatedList = [newFollowUp, ...currentList];
+        return { ...l, followUps: updatedList };
+      })
+    );
+
+    try {
+      await setDoc(
+        doc(db, 'campaign_leads', leadId),
+        cleanForFirestore({ followUps: updatedList }),
+        { merge: true }
+      );
+    } catch (err) {
+      console.warn('Firestore addCampaignLeadFollowUp error:', err);
+    }
+
+    addAuditLog('Lead Follow-up Created', `Follow-up created for lead ${leadId}: ${newFollowUp.title}`);
+    return newFollowUp;
+  };
+
+  const updateCampaignLeadFollowUp = async (
+    leadId: string,
+    followUpId: string,
+    updates: Partial<CampaignLeadFollowUp>
+  ) => {
+    const timestamp = new Date().toISOString();
+    let updatedList: CampaignLeadFollowUp[] = [];
+
+    setCampaignLeads((prev) =>
+      prev.map((l) => {
+        if (l.id !== leadId) return l;
+        const currentList = l.followUps || [];
+        updatedList = currentList.map((f) =>
+          f.id === followUpId ? { ...f, ...updates, updatedAt: timestamp } : f
+        );
+        return { ...l, followUps: updatedList };
+      })
+    );
+
+    try {
+      await setDoc(
+        doc(db, 'campaign_leads', leadId),
+        cleanForFirestore({ followUps: updatedList }),
+        { merge: true }
+      );
+    } catch (err) {
+      console.warn('Firestore updateCampaignLeadFollowUp error:', err);
+    }
+
+    addAuditLog('Lead Follow-up Updated', `Follow-up ${followUpId} updated for lead ${leadId}`);
+  };
+
+  const deleteCampaignLeadFollowUp = async (leadId: string, followUpId: string) => {
+    let updatedList: CampaignLeadFollowUp[] = [];
+    setCampaignLeads((prev) =>
+      prev.map((l) => {
+        if (l.id !== leadId) return l;
+        const currentList = l.followUps || [];
+        updatedList = currentList.filter((f) => f.id !== followUpId);
+        return { ...l, followUps: updatedList };
+      })
+    );
+
+    try {
+      await setDoc(
+        doc(db, 'campaign_leads', leadId),
+        cleanForFirestore({ followUps: updatedList }),
+        { merge: true }
+      );
+    } catch (err) {
+      console.warn('Firestore deleteCampaignLeadFollowUp error:', err);
+    }
+
+    addAuditLog('Lead Follow-up Deleted', `Follow-up ${followUpId} removed from lead ${leadId}`);
   };
 
   const deleteCampaignLead = async (id: string) => {
@@ -1885,7 +2131,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.setItem('css_student_reviews', JSON.stringify(nextReviews));
     } catch (_) {}
     try {
-      await setDoc(doc(db, 'student_reviews', id), item, { merge: true });
+      await setDoc(doc(db, 'student_reviews', id), cleanForFirestore(item), { merge: true });
     } catch (err) {
       console.warn('Could not save student_reviews to Firestore:', err);
     }
@@ -2042,7 +2288,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.setItem('css_lessons', JSON.stringify(nextLessons));
     } catch (_) {}
     try {
-      await setDoc(doc(db, 'lessons', id), item, { merge: true });
+      await setDoc(doc(db, 'lessons', id), cleanForFirestore(item), { merge: true });
     } catch (err) {
       console.warn('Could not save lessons to Firestore:', err);
     }
@@ -2102,7 +2348,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.setItem('css_videos', JSON.stringify(nextVideos));
     } catch (_) {}
     try {
-      await setDoc(doc(db, 'youtube_videos', id), item, { merge: true });
+      await setDoc(doc(db, 'youtube_videos', id), cleanForFirestore(item), { merge: true });
     } catch (err) {
       console.warn('Could not save youtube_videos to Firestore:', err);
     }
@@ -2147,7 +2393,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.setItem('css_gallery_images', JSON.stringify(nextGallery));
     } catch (_) {}
     try {
-      await setDoc(doc(db, 'gallery_images', id), item, { merge: true });
+      await setDoc(doc(db, 'gallery_images', id), cleanForFirestore(item), { merge: true });
     } catch (err) {
       console.warn('Could not save gallery_images to Firestore:', err);
     }
@@ -2185,7 +2431,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.setItem('css_locations', JSON.stringify(nextLocations));
     } catch (_) {}
     try {
-      await setDoc(doc(db, 'locations', id), item, { merge: true });
+      await setDoc(doc(db, 'locations', id), cleanForFirestore(item), { merge: true });
     } catch (err) {
       console.warn('Could not save locations to Firestore:', err);
     }
@@ -2220,7 +2466,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.setItem('css_faqs', JSON.stringify(nextFaqs));
     } catch (_) {}
     try {
-      await setDoc(doc(db, 'faqs', id), item, { merge: true });
+      await setDoc(doc(db, 'faqs', id), cleanForFirestore(item), { merge: true });
     } catch (err) {
       console.warn('Could not save faqs to Firestore:', err);
     }
@@ -2270,7 +2516,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     try {
-      await setDoc(doc(db, 'lesson_progress', id), updated, { merge: true });
+      await setDoc(doc(db, 'lesson_progress', id), cleanForFirestore(updated), { merge: true });
     } catch (err) {
       console.warn('Could not save lesson_progress to Firestore:', err);
     }
@@ -2296,7 +2542,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.setItem('css_video_categories', JSON.stringify(nextCats));
     } catch (_) {}
     try {
-      await setDoc(doc(db, 'video_categories', id), item, { merge: true });
+      await setDoc(doc(db, 'video_categories', id), cleanForFirestore(item), { merge: true });
     } catch (err) {
       console.warn('Could not save video_categories to Firestore:', err);
     }
@@ -2345,7 +2591,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.setItem('css_runway_outfits', JSON.stringify(nextOutfits));
     } catch (_) {}
     try {
-      await setDoc(doc(db, 'runway_outfits', id), item, { merge: true });
+      await setDoc(doc(db, 'runway_outfits', id), cleanForFirestore(item), { merge: true });
     } catch (err) {
       console.warn('Could not save runway_outfits to Firestore:', err);
     }
@@ -2388,7 +2634,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     try {
-      await setDoc(doc(db, 'student_creations', id), item, { merge: true });
+      await setDoc(doc(db, 'student_creations', id), cleanForFirestore(item), { merge: true });
     } catch (err) {
       console.warn('Could not save student_creations to Firestore:', err);
     }
@@ -2426,7 +2672,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const updates: any = { status, updatedAt: timestamp };
       if (adminNotes !== undefined) updates.adminNotes = adminNotes;
       if (isFeatured !== undefined) updates.isFeatured = isFeatured;
-      await setDoc(doc(db, 'student_creations', id), updates, { merge: true });
+      await setDoc(doc(db, 'student_creations', id), cleanForFirestore(updates), { merge: true });
     } catch (err) {
       console.warn('Could not update student_creations in Firestore:', err);
     }
@@ -2469,7 +2715,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     try {
-      await setDoc(doc(db, 'business_calculations', id), item, { merge: true });
+      await setDoc(doc(db, 'business_calculations', id), cleanForFirestore(item), { merge: true });
     } catch (err) {
       console.warn('Could not save business_calculations to Firestore:', err);
     }
@@ -2508,7 +2754,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     try {
-      await setDoc(doc(db, 'follow_up_history', id), record);
+      await setDoc(doc(db, 'follow_up_history', id), cleanForFirestore(record));
     } catch (_) {}
   };
 
@@ -2654,6 +2900,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         deleteCampaign,
         submitCampaignLead,
         updateCampaignLeadStatus,
+        updateCampaignLead,
+        logCampaignLeadCall,
+        addCampaignLeadFollowUp,
+        updateCampaignLeadFollowUp,
+        deleteCampaignLeadFollowUp,
         deleteCampaignLead,
         saveStudentReview,
         deleteStudentReview,

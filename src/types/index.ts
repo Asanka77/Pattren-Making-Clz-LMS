@@ -386,6 +386,23 @@ export interface CampaignLeadFollowUp {
   updatedAt?: string;
 }
 
+export interface CampaignCoursePoint {
+  id: string;
+  symbol: string; // e.g. '✨' | '✂️' | '👗' | '💎' | '🏆' | '⭐' | '🧵' | '🎓' | '📐' | '🪡' | '✅' | '💡'
+  text: string;
+  textSinhala?: string;
+  badge?: string;
+  badgeSinhala?: string;
+}
+
+export interface CampaignGalleryImage {
+  id: string;
+  imageUrl: string;
+  caption?: string;
+  captionSinhala?: string;
+  tag?: string;
+}
+
 export interface CampaignPage {
   id: string;
   slug: string;
@@ -393,17 +410,29 @@ export interface CampaignPage {
   titleSinhala?: string;
   badge?: string;
   badgeSinhala?: string;
+  coverImageUrl?: string;
+  coverImageCaption?: string;
+  coverImageCaptionSinhala?: string;
   associatedCourseId?: string;
   associatedCourseTitle?: string;
   aboutHeading?: string;
   aboutHeadingSinhala?: string;
   aboutDescription: string;
   aboutDescriptionSinhala?: string;
+  aboutPoints?: CampaignCoursePoint[];
   highlights?: string[];
   highlightsSinhala?: string[];
   videos: CampaignVideoEmbed[];
   pdfResource?: CampaignPdfResource;
   studentReviews: CampaignReviewEmbed[];
+  galleryImages?: CampaignGalleryImage[];
+  certificateImageUrl?: string;
+  certificateHeading?: string;
+  certificateHeadingSinhala?: string;
+  certificateDescription?: string;
+  certificateDescriptionSinhala?: string;
+  certificateIssuer?: string;
+  certificateIssuerSinhala?: string;
   regularPrice?: number;
   discountPrice?: number;
   currency?: string;

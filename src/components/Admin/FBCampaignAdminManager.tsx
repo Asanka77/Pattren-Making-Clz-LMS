@@ -15,6 +15,8 @@ import {
   CampaignLeadFollowUp,
   CampaignFollowUpStatus,
   CampaignFollowUpPriority,
+  CampaignCoursePoint,
+  CampaignGalleryImage,
 } from '../../types';
 import { useData } from '../../context/DataContext';
 import {
@@ -62,6 +64,8 @@ import {
   CheckCircle2,
   ListPlus,
   Tag,
+  Award,
+  Image as ImageIcon,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
@@ -192,7 +196,21 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
 
   // Edit Campaign State
   const [editingCampaign, setEditingCampaign] = useState<CampaignPage | null>(null);
-  const [campaignEditorTab, setCampaignEditorTab] = useState<'basics' | 'about' | 'videos' | 'pdf' | 'reviews' | 'pricing' | 'form'>('basics');
+  const [campaignEditorTab, setCampaignEditorTab] = useState<
+    'basics' | 'about' | 'videos' | 'gallery' | 'certificate' | 'pdf' | 'reviews' | 'pricing' | 'form'
+  >('basics');
+
+  // Course Points Builder State (Tab 2: About)
+  const [pointSymbol, setPointSymbol] = useState('✨');
+  const [pointText, setPointText] = useState('');
+  const [pointTextSinhala, setPointTextSinhala] = useState('');
+  const [pointBadge, setPointBadge] = useState('');
+
+  // Gallery Images Builder State (Tab 4: Gallery)
+  const [galleryImageUrl, setGalleryImageUrl] = useState('');
+  const [galleryCaption, setGalleryCaption] = useState('');
+  const [galleryCaptionSinhala, setGalleryCaptionSinhala] = useState('');
+  const [galleryTag, setGalleryTag] = useState('Atelier Studio');
 
   // Selected Lead Details
   const [selectedLead, setSelectedLead] = useState<CampaignLead | null>(null);
@@ -229,6 +247,9 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
   const [whatsappModalLead, setWhatsappModalLead] = useState<CampaignLead | null>(null);
   const [whatsappTemplateType, setWhatsappTemplateType] = useState<'welcome' | 'no_answer' | 'payment' | 'custom'>('no_answer');
   const [customWhatsappMessage, setCustomWhatsappMessage] = useState<string>('');
+
+  // Cover Image Upload State
+  const [isUploadingCoverImage, setIsUploadingCoverImage] = useState(false);
 
   // Toast message
   const [toastMsg, setToastMsg] = useState<string | null>(null);
@@ -551,6 +572,113 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
       return `හෙලෝ ${lead.fullName}, Ceylon Style Studio විලාසිතා ඇකඩමිය වෙත සාදරයෙන් පිළිගනිමු!\n\nඔබ "${campaignTitle}" පාඨමාලාව සඳහා සාර්ථකව ලියාපදිංචි වී ඇත. (Ref: ${lead.id})\n\n• පාඨමාලා ගාස්තුව: ${priceText}\n• තෝරාගත් ශාඛාව: ${lead.preferredLocation || lead.city || 'Kurunegala Atelier'}\n• ඉගෙනුම් ක්‍රමය: ${lead.studyMode === 'PHYSICAL' ? 'ප්‍රායෝගික වැඩමුළු (Physical)' : 'සජීවී ඔන්ලයින් (Live Zoom)'}\n\nඅපගේ ඇතුළත් කිරීම් අංශය මගින් වැඩිදුර තොරතුරු සහ කාලසටහන ඔබට දැනුම් දෙනු ඇත. ඔබට කිසියම් ගැටලුවක් ඇත්නම් මෙහි සටහන් කරන්න.`;
     }
     return customWhatsappMessage;
+  };
+
+  // Helper to format clean Sri Lanka WhatsApp Phone number (e.g. 077... -> 9477...)
+  const getCleanWhatsAppPhone = (rawPhone: string): string => {
+    let cleaned = (rawPhone || '').replace(/[^0-9]/g, '');
+    if (cleaned.startsWith('0')) {
+      cleaned = '94' + cleaned.slice(1);
+    } else if (cleaned.length === 9 && !cleaned.startsWith('94')) {
+      cleaned = '94' + cleaned;
+    }
+    return cleaned;
+  };
+
+  // Helper to generate 1-click Direct WhatsApp chat URL targeted to student's phone with pre-filled message
+  const getDirectWhatsAppUrl = (lead: CampaignLead): string => {
+    const cleanPhone = getCleanWhatsAppPhone(lead.whatsappNumber);
+    const template =
+      lead.callStatus === 'CALL_NO_ANSWER'
+        ? 'no_answer'
+        : lead.callStatus === 'PAYMENT_PENDING'
+        ? 'payment'
+        : 'welcome';
+    const text = getWhatsAppMessageText(lead, template);
+    return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`;
+  };
+
+  // Helper to handle local Cover Page Hero Image file upload & canvas compression
+  const handleCoverImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      showToast('Please select a valid image file (PNG, JPG, WEBP)!');
+      return;
+    }
+
+    setIsUploadingCoverImage(true);
+    const reader = new FileReader();
+    reader.onerror = () => {
+      setIsUploadingCoverImage(false);
+      showToast('Failed to read image file.');
+    };
+    reader.onload = (ev) => {
+      const rawData = ev.target?.result as string;
+      if (!rawData) {
+        setIsUploadingCoverImage(false);
+        return;
+      }
+
+      const img = new Image();
+      img.onerror = () => {
+        setIsUploadingCoverImage(false);
+        showToast('Invalid image file format.');
+      };
+      img.onload = () => {
+        try {
+          const maxDim = 1600;
+          let w = img.width;
+          let h = img.height;
+          if (w > maxDim || h > maxDim) {
+            if (w > h) {
+              h = Math.round((h * maxDim) / w);
+              w = maxDim;
+            } else {
+              w = Math.round((w * maxDim) / h);
+              h = maxDim;
+            }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, w, h);
+            const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+            if (editingCampaign) {
+              setEditingCampaign({
+                ...editingCampaign,
+                coverImageUrl: compressedDataUrl,
+              });
+              showToast('Cover Hero Image uploaded & set! Click "Save Campaign" below to save.');
+            }
+          } else if (editingCampaign) {
+            setEditingCampaign({
+              ...editingCampaign,
+              coverImageUrl: rawData,
+            });
+            showToast('Cover Hero Image set! Click "Save Campaign" below to save.');
+          }
+        } catch (err) {
+          console.error(err);
+          if (editingCampaign) {
+            setEditingCampaign({
+              ...editingCampaign,
+              coverImageUrl: rawData,
+            });
+            showToast('Cover Hero Image loaded! Click "Save Campaign" below to save.');
+          }
+        } finally {
+          setIsUploadingCoverImage(false);
+          // reset input value so user can re-upload if needed
+          e.target.value = '';
+        }
+      };
+      img.src = rawData;
+    };
+    reader.readAsDataURL(file);
   };
 
   // Helper to open new campaign creator
@@ -1135,31 +1263,72 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
                           {/* Direct Contact & WhatsApp */}
                           <td className="p-3 font-mono">
                             <div className="flex flex-col gap-1.5">
-                              <div className="flex items-center gap-1.5 text-emerald-400 font-bold">
-                                <span>{lead.whatsappNumber}</span>
-                              </div>
+                              {/* Direct Clickable WhatsApp Phone Link: Opens student WhatsApp chat directly */}
+                              <a
+                                href={getDirectWhatsAppUrl(lead)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={() => showToast(`Opening WhatsApp chat for ${lead.fullName} (${lead.whatsappNumber})...`)}
+                                className="inline-flex items-center gap-1.5 text-emerald-400 hover:text-emerald-300 font-bold group cursor-pointer"
+                                title="Click number to open student's WhatsApp chat with prefilled message"
+                              >
+                                <div className="w-5 h-5 rounded-full bg-[#25D366]/20 border border-[#25D366] flex items-center justify-center shrink-0 group-hover:bg-[#25D366] group-hover:text-black transition-all">
+                                  <MessageSquare className="w-2.5 h-2.5 text-[#25D366] group-hover:text-black fill-current" />
+                                </div>
+                                <span className="underline decoration-emerald-500/60 group-hover:decoration-emerald-300 text-xs">
+                                  {lead.whatsappNumber}
+                                </span>
+                                <ExternalLink className="w-2.5 h-2.5 opacity-60 text-emerald-400 group-hover:opacity-100" />
+                              </a>
 
-                              <div className="flex items-center gap-1.5">
+                              <div className="flex items-center gap-1.5 pt-0.5">
+                                {/* 1-Click WhatsApp Direct Chat */}
+                                <a
+                                  href={getDirectWhatsAppUrl(lead)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={() => showToast(`Direct WhatsApp chat opened for ${lead.fullName}!`)}
+                                  className="px-2 py-0.5 rounded bg-[#25D366] text-black hover:bg-[#20ba59] transition-all flex items-center gap-1 text-[10px] font-bold cursor-pointer shadow hover:scale-105"
+                                  title="Open WhatsApp chat directly with prefilled admission message"
+                                >
+                                  <MessageSquare className="w-3 h-3 fill-black" />
+                                  <span>Chat Now</span>
+                                </a>
+
                                 {/* 1-Click WhatsApp Direct Message Template Modal */}
                                 <button
                                   type="button"
                                   onClick={() => {
                                     setWhatsappModalLead(lead);
-                                    setWhatsappTemplateType('no_answer');
-                                    setCustomWhatsappMessage(getWhatsAppMessageText(lead, 'no_answer'));
+                                    setWhatsappTemplateType(
+                                      lead.callStatus === 'CALL_NO_ANSWER'
+                                        ? 'no_answer'
+                                        : lead.callStatus === 'PAYMENT_PENDING'
+                                        ? 'payment'
+                                        : 'welcome'
+                                    );
+                                    setCustomWhatsappMessage(
+                                      getWhatsAppMessageText(
+                                        lead,
+                                        lead.callStatus === 'CALL_NO_ANSWER'
+                                          ? 'no_answer'
+                                          : lead.callStatus === 'PAYMENT_PENDING'
+                                          ? 'payment'
+                                          : 'welcome'
+                                      )
+                                    );
                                   }}
-                                  className="px-2 py-1 rounded bg-[#25D366]/20 border border-[#25D366]/40 text-[#25D366] hover:bg-[#25D366] hover:text-black transition-all flex items-center gap-1 text-[10px] font-bold cursor-pointer"
-                                  title="Send Customized WhatsApp Message"
+                                  className="px-2 py-0.5 rounded bg-[#140b0e] border border-white/20 text-[#d5cfc4] hover:text-white hover:border-[#dfb56c] transition-all flex items-center gap-1 text-[10px] font-mono cursor-pointer"
+                                  title="Choose message template or edit text before sending"
                                 >
-                                  <MessageSquare className="w-3 h-3" />
-                                  <span>WhatsApp</span>
+                                  <span>Templates</span>
                                 </button>
 
                                 {/* Direct Call Button */}
                                 <a
                                   href={`tel:${lead.whatsappNumber.replace(/[^0-9+]/g, '')}`}
                                   className="p-1 rounded bg-blue-950/60 border border-blue-500/40 text-blue-300 hover:bg-blue-600 hover:text-white transition-all cursor-pointer"
-                                  title="Call Student"
+                                  title="Direct Phone Call"
                                 >
                                   <Phone className="w-3 h-3" />
                                 </a>
@@ -1394,7 +1563,18 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
                       className="px-3 py-1 rounded bg-blue-900/60 hover:bg-blue-800 border border-blue-400 text-blue-200 text-xs font-mono flex items-center gap-1.5 cursor-pointer"
                     >
                       <Phone className="w-3.5 h-3.5" />
-                      <span>Call Now ({callLoggingLead.whatsappNumber})</span>
+                      <span>Call Now</span>
+                    </a>
+                    <a
+                      href={getDirectWhatsAppUrl(callLoggingLead)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-3 py-1 rounded bg-[#25D366] text-black hover:bg-[#20ba59] text-xs font-mono font-bold flex items-center gap-1.5 cursor-pointer shadow hover:scale-105 transition-all"
+                      title="Direct 1-click WhatsApp chat"
+                      onClick={() => showToast(`Opening WhatsApp chat for ${callLoggingLead.fullName}...`)}
+                    >
+                      <MessageSquare className="w-3.5 h-3.5 fill-black" />
+                      <span>Open Direct WhatsApp ({callLoggingLead.whatsappNumber})</span>
                     </a>
                     <button
                       type="button"
@@ -1406,7 +1586,7 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
                       className="px-3 py-1 rounded bg-[#25D366]/20 hover:bg-[#25D366] hover:text-black border border-[#25D366]/50 text-[#25D366] text-xs font-mono font-bold flex items-center gap-1.5 cursor-pointer transition-all"
                     >
                       <MessageSquare className="w-3.5 h-3.5" />
-                      <span>Send WhatsApp Message</span>
+                      <span>Choose Template</span>
                     </button>
                   </div>
 
@@ -2145,13 +2325,15 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
             {/* Modal Sub-Tabs */}
             <div className="flex items-center gap-1 px-4 py-2 bg-black border-b border-white/10 overflow-x-auto text-xs font-mono">
               {[
-                { id: 'basics', label: '1. Basics & Slug' },
-                { id: 'about', label: '2. About & Highlights' },
+                { id: 'basics', label: '1. Basics & Cover Image' },
+                { id: 'about', label: `2. About Course Points (${editingCampaign.aboutPoints?.length || 0})` },
                 { id: 'videos', label: `3. Videos (${editingCampaign.videos?.length || 0})` },
-                { id: 'pdf', label: '4. PDF Brochure' },
-                { id: 'reviews', label: `5. Student Reviews (${editingCampaign.studentReviews?.length || 0})` },
-                { id: 'pricing', label: '6. Pricing & Urgency' },
-                { id: 'form', label: '7. Form & Date Lines Customizer' },
+                { id: 'gallery', label: `4. Gallery (${editingCampaign.galleryImages?.length || 0})` },
+                { id: 'certificate', label: '5. Certificate Showcase' },
+                { id: 'pdf', label: '6. PDF Brochure' },
+                { id: 'reviews', label: `7. Student Reviews (${editingCampaign.studentReviews?.length || 0})` },
+                { id: 'pricing', label: '8. Pricing & Urgency' },
+                { id: 'form', label: '9. Form & Date Lines Customizer' },
               ].map((tab) => (
                 <button
                   key={tab.id}
@@ -2270,6 +2452,142 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
                     </select>
                   </div>
 
+                  {/* Cover Page Hero Image Customizer */}
+                  <div className="p-4 rounded-lg bg-black/60 border border-[#dfb56c]/40 space-y-3.5 shadow-md">
+                    <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                      <div className="flex items-center gap-2">
+                        <ImageIcon className="w-4 h-4 text-[#dfb56c]" />
+                        <span className="text-xs font-mono uppercase text-[#dfb56c] font-bold">
+                          Cover Page Hero Image / ප්‍රධාන කවර ඡායාරූපය
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-mono text-[#a89f91]">Banner &amp; Form Header</span>
+                    </div>
+
+                    <p className="text-xs text-[#a89f91] font-sinhala leading-relaxed">
+                      ශිෂ්‍යයාට Landing Page එකෙහි ඉහළින්ම ආකර්ෂණීය ලෙස පෙනෙන ප්‍රධාන කවර ඡායාරූපය (Cover Image) මෙහි යොදන්න. ඔබට පරිගණකයෙන් හෝ දුරකථනයෙන් සෘජුවම Image Upload කළ හැක, නැතහොත් Image Link (URL) එකක් ලබාදිය හැක.
+                    </p>
+
+                    {/* Method 1: Direct File Upload from Device */}
+                    <div className="p-3.5 rounded-lg bg-[#140b0e] border border-dashed border-[#dfb56c]/60 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-mono uppercase text-[#dfb56c] font-bold flex items-center gap-1.5">
+                          <Upload className="w-3.5 h-3.5 text-[#dfb56c]" />
+                          <span>Option 1: Upload Image File (Local Device / Phone / PC)</span>
+                        </span>
+                        {isUploadingCoverImage && (
+                          <span className="text-[11px] font-mono text-amber-300 animate-pulse flex items-center gap-1">
+                            <RefreshCw className="w-3 h-3 animate-spin" /> Processing &amp; Setting...
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row items-center gap-3">
+                        <label className="w-full sm:w-auto px-4 py-2.5 rounded bg-gradient-to-r from-[#540d18] to-[#3a0910] hover:from-[#6b111f] hover:to-[#4d0c15] border border-[#dfb56c] text-[#f7e2a9] text-xs font-mono font-bold flex items-center justify-center gap-2 cursor-pointer transition-all shadow hover:scale-[1.02]">
+                          <Upload className="w-4 h-4 text-[#dfb56c]" />
+                          <span>Upload Local Image File / ඡායාරූපයක් තෝරන්න</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleCoverImageFileChange}
+                            disabled={isUploadingCoverImage}
+                            className="hidden"
+                          />
+                        </label>
+
+                        <span className="text-[11px] text-[#a89f91] font-sinhala text-center sm:text-left">
+                          PNG, JPG, WEBP formats (ස්වයංක්‍රීයව ප්‍රශස්ත කර (Optimized) Save වේ)
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Method 2: Direct Image URL */}
+                    <div>
+                      <label className="block text-[11px] font-mono text-[#a89f91] mb-1">
+                        Option 2: Cover Image URL (Direct Web Link / Unsplash)
+                      </label>
+                      <input
+                        type="url"
+                        value={editingCampaign.coverImageUrl || ''}
+                        onChange={(e) =>
+                          setEditingCampaign({ ...editingCampaign, coverImageUrl: e.target.value })
+                        }
+                        placeholder="https://images.unsplash.com/... or paste image URL"
+                        className="w-full px-3 py-2 bg-[#140b0e] border border-white/15 rounded text-xs text-white font-mono focus:border-[#dfb56c] outline-none"
+                      />
+                    </div>
+
+                    {/* Quick Presets for Cover Image */}
+                    <div>
+                      <span className="block text-[10px] font-mono uppercase text-[#a89f91] mb-1.5">
+                        ⚡ Quick Luxury Atelier Presets / උසස් තත්ත්වයේ ආකෘති:
+                      </span>
+                      <div className="flex flex-wrap gap-1.5 text-xs">
+                        {[
+                          { name: '👗 Haute Couture Studio', url: 'https://images.unsplash.com/photo-1558769132-cb1aea458c5e?auto=format&fit=crop&w=1200&q=80' },
+                          { name: '✂️ Pattern Drafting Table', url: 'https://images.unsplash.com/photo-1537832816519-689ad163238b?auto=format&fit=crop&w=1200&q=80' },
+                          { name: '🧵 Sewing Machines Atelier', url: 'https://images.unsplash.com/photo-1528458876861-544fd1761a91?auto=format&fit=crop&w=1200&q=80' },
+                          { name: '📏 Tailoring & Luxury Fabrics', url: 'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?auto=format&fit=crop&w=1200&q=80' },
+                          { name: '👠 Runway Fashion Collection', url: 'https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&w=1200&q=80' },
+                        ].map((preset, pIdx) => (
+                          <button
+                            key={pIdx}
+                            type="button"
+                            onClick={() => {
+                              setEditingCampaign({ ...editingCampaign, coverImageUrl: preset.url });
+                              showToast(`Applied preset: ${preset.name}`);
+                            }}
+                            className="px-2.5 py-1 rounded bg-[#1c1013] border border-white/10 hover:border-[#dfb56c] text-[#dfb56c] text-[11px] font-mono cursor-pointer transition-all hover:bg-[#540d18]/40"
+                          >
+                            {preset.name}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Live Preview if coverImageUrl exists */}
+                    {editingCampaign.coverImageUrl ? (
+                      <div className="space-y-1.5 pt-1">
+                        <div className="flex items-center justify-between text-xs font-mono">
+                          <span className="text-emerald-400 flex items-center gap-1">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                            <span>Active Cover Image Set (Click "Save Campaign" below to save)</span>
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingCampaign({ ...editingCampaign, coverImageUrl: '' });
+                              showToast('Cover Image removed.');
+                            }}
+                            className="text-red-400 hover:text-red-300 flex items-center gap-1 cursor-pointer"
+                          >
+                            <Trash2 className="w-3 h-3" /> Remove Cover Image
+                          </button>
+                        </div>
+
+                        <div className="relative rounded-lg overflow-hidden border-2 border-[#dfb56c] h-44 bg-black shadow-xl">
+                          <img
+                            src={editingCampaign.coverImageUrl}
+                            alt="Cover Banner Preview"
+                            className="w-full h-full object-cover filter brightness-95"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex items-end justify-between p-3">
+                            <span className="text-xs font-mono text-[#dfb56c] bg-black/80 px-2.5 py-1 rounded border border-[#dfb56c]/40 font-bold shadow">
+                              Cover Page Hero Image Active Preview
+                            </span>
+                            <span className="text-[10px] font-mono text-zinc-300 bg-black/70 px-2 py-0.5 rounded">
+                              {editingCampaign.coverImageUrl.startsWith('data:') ? 'Local Upload (Base64)' : 'External URL'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-4 rounded border border-dashed border-white/10 text-center text-xs text-zinc-500 font-mono">
+                        No cover image set yet. Upload an image file or choose a preset above.
+                      </div>
+                    )}
+                  </div>
+
                   <div className="pt-2 flex items-center gap-3">
                     <label className="flex items-center gap-2 text-xs font-mono text-[#f7e2a9] cursor-pointer">
                       <input
@@ -2331,11 +2649,217 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
                     />
                   </div>
 
+                  {/* Dynamic Course Points & Highlights with Symbols Builder */}
+                  <div className="space-y-4 pt-3 border-t border-white/10">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div>
+                        <h4 className="text-xs font-mono uppercase text-[#dfb56c] font-bold flex items-center gap-1.5">
+                          <Sparkles className="w-4 h-4 text-[#dfb56c]" />
+                          <span>Course Highlights &amp; Points with Symbols / ලස්සන සංකේත සහිත කරුණු</span>
+                        </h4>
+                        <p className="text-[11px] text-[#a89f91] font-sinhala">
+                          දීර්ඝ ඡේද වෙනුවට සිත් ඇදගන්නාසුළු Symbols (✂️, 👗, 💎, 🏆, ✨ ආදී) සහිතව පාඨමාලාවේ ප්‍රධාන කරුණු මෙහි ලැයිස්තුගත කරන්න.
+                        </p>
+                      </div>
+
+                      <span className="text-xs font-mono px-2.5 py-0.5 rounded bg-[#540d18] border border-[#dfb56c] text-[#f7e2a9] self-start sm:self-auto">
+                        Total Points: {(editingCampaign.aboutPoints || []).length}
+                      </span>
+                    </div>
+
+                    {/* Point Creator Form */}
+                    <div className="p-3.5 rounded-lg bg-black/70 border border-[#dfb56c]/40 space-y-3 shadow-md">
+                      <div>
+                        <label className="block text-[11px] font-mono text-[#a89f91] mb-1.5 font-bold">
+                          1. Choose Symbol / සංකේතය තෝරන්න:
+                        </label>
+                        <div className="flex flex-wrap gap-1.5">
+                          {['✨', '✂️', '👗', '💎', '🏆', '⭐', '🧵', '🎓', '📐', '🪡', '✅', '💡', '🏷️', '🎯', '🔥', '👑'].map((sym) => (
+                            <button
+                              key={sym}
+                              type="button"
+                              onClick={() => setPointSymbol(sym)}
+                              className={`w-8 h-8 rounded text-base flex items-center justify-center transition-all cursor-pointer ${
+                                pointSymbol === sym
+                                  ? 'bg-[#dfb56c] text-black ring-2 ring-white scale-110 shadow-lg'
+                                  : 'bg-[#140b0e] hover:bg-white/10 border border-white/10'
+                              }`}
+                            >
+                              {sym}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Point texts in English & Sinhala */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[11px] font-mono text-[#dfb56c] mb-1 font-bold">
+                            Point Text (English) *
+                          </label>
+                          <input
+                            type="text"
+                            value={pointText}
+                            onChange={(e) => setPointText(e.target.value)}
+                            placeholder="e.g. Standard Pattern Drafting & Grading from Scratch"
+                            className="w-full px-3 py-1.5 bg-[#140b0e] border border-white/15 rounded text-xs text-white focus:border-[#dfb56c] outline-none"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-mono text-[#dfb56c] mb-1 font-bold">
+                            Point Text (Sinhala / සිංහල)
+                          </label>
+                          <input
+                            type="text"
+                            value={pointTextSinhala}
+                            onChange={(e) => setPointTextSinhala(e.target.value)}
+                            placeholder="උදා: මුලසිටම ප්‍රමිතිගත පැටර්න් නිර්මාණය සහ ග්‍රේඩින් පුහුණුව"
+                            className="w-full px-3 py-1.5 bg-[#140b0e] border border-white/15 rounded text-xs text-white focus:border-[#dfb56c] outline-none font-sinhala"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Badge and Add button */}
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-1">
+                        <div className="flex-1">
+                          <input
+                            type="text"
+                            value={pointBadge}
+                            onChange={(e) => setPointBadge(e.target.value)}
+                            placeholder="Optional Tag (e.g. 100% Practical, NVQ Aligned, Zero Experience OK)"
+                            className="w-full px-3 py-1.5 bg-[#140b0e] border border-white/15 rounded text-xs text-zinc-300 font-mono"
+                          />
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!pointText.trim() && !pointTextSinhala.trim()) {
+                              showToast('Please enter point text!');
+                              return;
+                            }
+                            const current = editingCampaign.aboutPoints || [];
+                            const newPoint: CampaignCoursePoint = {
+                              id: `pt-${Date.now()}`,
+                              symbol: pointSymbol || '✨',
+                              text: pointText.trim() || pointTextSinhala.trim(),
+                              textSinhala: pointTextSinhala.trim() || undefined,
+                              badge: pointBadge.trim() || undefined,
+                            };
+                            setEditingCampaign({
+                              ...editingCampaign,
+                              aboutPoints: [...current, newPoint],
+                            });
+                            setPointText('');
+                            setPointTextSinhala('');
+                            setPointBadge('');
+                            showToast('Course point added with symbol!');
+                          }}
+                          className="px-4 py-1.5 bg-[#540d18] hover:bg-[#6e1322] border border-[#dfb56c] text-[#f7e2a9] text-xs font-mono font-bold rounded flex items-center justify-center gap-1.5 cursor-pointer shadow transition-all shrink-0"
+                        >
+                          <Plus className="w-3.5 h-3.5 text-[#dfb56c]" />
+                          <span>Add Point with Symbol (+ කරුණක් එක් කරන්න)</span>
+                        </button>
+                      </div>
+
+                      {/* Quick Presets for Fashion Academy */}
+                      <div className="pt-2 border-t border-white/5">
+                        <span className="block text-[10px] font-mono text-[#a89f91] mb-1">
+                          ⚡ Instant Presets / ක්ෂණික කරුණු ආකෘති:
+                        </span>
+                        <div className="flex flex-wrap gap-1 text-xs">
+                          {[
+                            { sym: '✂️', en: 'Standard Pattern Drafting & Grading from Scratch', si: 'මුලසිටම ප්‍රමිතිගත පැටර්න් නිර්මාණය සහ ග්‍රේඩින් පුහුණුව', tag: '100% Practical' },
+                            { sym: '👗', en: 'Haute Couture & Wedding Dress Construction', si: 'උසස් මංගල සහ උත්සව ඇඳුම් නිම කිරීමේ තාක්ෂණය', tag: 'Couture Finish' },
+                            { sym: '🧵', en: 'Industrial High-speed Sewing Machine Training', si: 'කාර්මික අධිවේගී මැහුම් යන්ත්‍ර ප්‍රායෝගික පුහුණුව', tag: 'Hands-on Atelier' },
+                            { sym: '🎓', en: 'TVEC / NVQ Government Aligned Recognized Certificate', si: 'රජයේ පිළිගත් නිල ඩිප්ලෝමා සහතිකය හිමිවේ', tag: 'NVQ Aligned' },
+                            { sym: '💎', en: 'Clothing Boutique & Brand Startup Mentorship', si: 'ස්වයං ඇඳුම් ව්‍යාපාරයක් සාර්ථකව ආරම්භ කිරීමේ මඟපෙන්වීම', tag: 'Business Mentorship' },
+                            { sym: '📐', en: '100% Guaranteed Practical Individual Hands-on Attention', si: 'සෑම සිසුවෙකුටම තනි තනිව ප්‍රායෝගික අවධානය', tag: 'Individual Focus' },
+                          ].map((pre, pIdx) => (
+                            <button
+                              key={pIdx}
+                              type="button"
+                              onClick={() => {
+                                const current = editingCampaign.aboutPoints || [];
+                                const newPoint: CampaignCoursePoint = {
+                                  id: `pt-${Date.now()}-${pIdx}`,
+                                  symbol: pre.sym,
+                                  text: pre.en,
+                                  textSinhala: pre.si,
+                                  badge: pre.tag,
+                                };
+                                setEditingCampaign({
+                                  ...editingCampaign,
+                                  aboutPoints: [...current, newPoint],
+                                });
+                                showToast(`Added: ${pre.en}`);
+                              }}
+                              className="px-2 py-0.5 rounded bg-[#1c1013] border border-white/10 hover:border-[#dfb56c] text-[#dfb56c] text-[10px] font-mono cursor-pointer transition-all"
+                            >
+                              + {pre.sym} {pre.en.split(' ')[0]} {pre.en.split(' ')[1]}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Existing Points Display */}
+                    <div className="space-y-2 pt-1">
+                      {(!editingCampaign.aboutPoints || editingCampaign.aboutPoints.length === 0) ? (
+                        <div className="p-4 text-center rounded bg-black/40 border border-dashed border-white/10 text-xs text-[#a89f91] font-sinhala">
+                          තවම Symbols සහිත කරුණු එක් කර නැත. ඉහත "Add Point with Symbol" හෝ Quick Presets භාවිතයෙන් කරුණු එක් කරන්න.
+                        </div>
+                      ) : (
+                        editingCampaign.aboutPoints.map((pt, ptIdx) => (
+                          <div
+                            key={pt.id || ptIdx}
+                            className="p-3 rounded-lg bg-black/70 border border-white/15 flex items-start justify-between gap-3 hover:border-[#dfb56c]/50 transition-all shadow-sm"
+                          >
+                            <div className="flex items-start gap-3">
+                              <span className="w-9 h-9 rounded-lg bg-[#540d18] border border-[#dfb56c] flex items-center justify-center text-lg shrink-0 shadow">
+                                {pt.symbol || '✨'}
+                              </span>
+                              <div className="space-y-0.5">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="text-xs font-bold text-white leading-snug">{pt.text}</span>
+                                  {pt.badge && (
+                                    <span className="px-2 py-0.2 rounded bg-[#38070e] text-[#dfb56c] border border-[#dfb56c]/30 text-[10px] font-mono font-bold">
+                                      {pt.badge}
+                                    </span>
+                                  )}
+                                </div>
+                                {pt.textSinhala && (
+                                  <p className="text-xs text-[#d5cfc4] font-sinhala leading-snug">
+                                    {pt.textSinhala}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const updated = (editingCampaign.aboutPoints || []).filter((_, i) => i !== ptIdx);
+                                setEditingCampaign({ ...editingCampaign, aboutPoints: updated });
+                                showToast('Point removed');
+                              }}
+                              className="p-1 rounded text-red-400 hover:text-red-200 hover:bg-red-950/60 cursor-pointer shrink-0"
+                              title="Delete point"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+
                   {/* Highlights Bullet Points */}
                   <div className="space-y-2 pt-2 border-t border-white/10">
                     <div className="flex items-center justify-between">
                       <label className="text-xs font-mono uppercase text-[#dfb56c] font-bold">
-                        Key Feature Highlights (Bullet Points)
+                        Additional Bullet Points (Optional)
                       </label>
                       <button
                         type="button"
@@ -2509,7 +3033,386 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
                 </div>
               )}
 
-              {/* TAB 4: PDF BROCHURE */}
+              {/* TAB: IMAGE GALLERY CUSTOMIZER */}
+              {campaignEditorTab === 'gallery' && (
+                <div className="space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/10 pb-3">
+                    <div>
+                      <h4 className="text-sm font-bold text-white font-editorial flex items-center gap-2">
+                        <ImageIcon className="w-4 h-4 text-[#dfb56c]" />
+                        <span>Atelier &amp; Workshop Image Gallery / ඡායාරූප ගැලරිය</span>
+                      </h4>
+                      <p className="text-xs text-[#a89f91] font-sinhala">
+                        පාඨමාලාවේ ප්‍රායෝගික වැඩමුළු, සිසුන්ගේ මෝස්තර නිර්මාණ සහ වැඩබිම් ඡායාරූප ශිෂ්‍යයාට පෙන්වීමට මෙහි එක් කරන්න.
+                      </p>
+                    </div>
+
+                    <span className="text-xs font-mono px-2.5 py-0.5 rounded bg-[#540d18] border border-[#dfb56c] text-[#f7e2a9] self-start sm:self-auto">
+                      Photos: {(editingCampaign.galleryImages || []).length}
+                    </span>
+                  </div>
+
+                  {/* Add New Gallery Image Box */}
+                  <div className="p-4 rounded-lg bg-black/70 border border-[#dfb56c]/40 space-y-3 shadow-lg">
+                    <span className="text-xs font-mono uppercase text-[#dfb56c] font-bold block">
+                      + Add New Gallery Image / අලුත් ඡායාරූපයක් එක් කිරීම
+                    </span>
+
+                    <div>
+                      <label className="block text-[11px] font-mono text-[#a89f91] mb-1">
+                        Image URL (Direct high-res photo link) *
+                      </label>
+                      <input
+                        type="url"
+                        value={galleryImageUrl}
+                        onChange={(e) => setGalleryImageUrl(e.target.value)}
+                        placeholder="https://images.unsplash.com/... or paste image URL"
+                        className="w-full px-3 py-2 bg-[#140b0e] border border-white/15 rounded text-xs text-white font-mono focus:border-[#dfb56c] outline-none"
+                      />
+                    </div>
+
+                    {/* Presets */}
+                    <div>
+                      <span className="block text-[10px] font-mono text-[#a89f91] mb-1">
+                        ⚡ Luxury Atelier Photography Presets:
+                      </span>
+                      <div className="flex flex-wrap gap-1.5 text-xs">
+                        {[
+                          { title: 'Pattern Drafting & Cutting Masterclass', url: 'https://images.unsplash.com/photo-1558769132-cb1aea458c5e?auto=format&fit=crop&w=800&q=80', tag: 'Pattern Atelier' },
+                          { title: 'Mannequin Draping & Gown Fitting', url: 'https://images.unsplash.com/photo-1537832816519-689ad163238b?auto=format&fit=crop&w=800&q=80', tag: 'Couture Draping' },
+                          { title: 'High-speed Industrial Sewing Stations', url: 'https://images.unsplash.com/photo-1528458876861-544fd1761a91?auto=format&fit=crop&w=800&q=80', tag: 'Sewing Lab' },
+                          { title: 'Fashion Fabrics Selection & Textures', url: 'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?auto=format&fit=crop&w=800&q=80', tag: 'Materials' },
+                          { title: 'Student Garment Collection Showcase', url: 'https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&w=800&q=80', tag: 'Runway Showcase' },
+                          { title: 'Precision Tailoring & Hand Finishing', url: 'https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&fit=crop&w=800&q=80', tag: 'Tailoring' },
+                        ].map((pre, pIdx) => (
+                          <button
+                            key={pIdx}
+                            type="button"
+                            onClick={() => {
+                              setGalleryImageUrl(pre.url);
+                              setGalleryCaption(pre.title);
+                              setGalleryTag(pre.tag);
+                            }}
+                            className="px-2 py-0.5 rounded bg-[#1c1013] border border-white/10 hover:border-[#dfb56c] text-[#dfb56c] text-[10px] font-mono cursor-pointer transition-all"
+                          >
+                            + {pre.tag}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-mono text-[#a89f91] mb-1">
+                          Photo Caption (English)
+                        </label>
+                        <input
+                          type="text"
+                          value={galleryCaption}
+                          onChange={(e) => setGalleryCaption(e.target.value)}
+                          placeholder="e.g. Masterclass Pattern Cutting Demonstration"
+                          className="w-full px-3 py-1.5 bg-[#140b0e] border border-white/15 rounded text-xs text-white"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-mono text-[#a89f91] mb-1">
+                          Photo Caption (Sinhala)
+                        </label>
+                        <input
+                          type="text"
+                          value={galleryCaptionSinhala}
+                          onChange={(e) => setGalleryCaptionSinhala(e.target.value)}
+                          placeholder="උදා: ප්‍රායෝගික පැටර්න් කැපීමේ වැඩමුළුව"
+                          className="w-full px-3 py-1.5 bg-[#140b0e] border border-white/15 rounded text-xs text-white font-sinhala"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-mono text-[#a89f91] mb-1">
+                          Category Tag / අංශය
+                        </label>
+                        <input
+                          type="text"
+                          value={galleryTag}
+                          onChange={(e) => setGalleryTag(e.target.value)}
+                          placeholder="Atelier Studio"
+                          className="w-full px-3 py-1.5 bg-[#140b0e] border border-white/15 rounded text-xs text-white font-mono"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="pt-1 flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!galleryImageUrl.trim()) {
+                            showToast('Please enter image URL!');
+                            return;
+                          }
+                          const current = editingCampaign.galleryImages || [];
+                          const newImg: CampaignGalleryImage = {
+                            id: `img-${Date.now()}`,
+                            imageUrl: galleryImageUrl.trim(),
+                            caption: galleryCaption.trim() || undefined,
+                            captionSinhala: galleryCaptionSinhala.trim() || undefined,
+                            tag: galleryTag.trim() || 'Atelier Studio',
+                          };
+                          setEditingCampaign({
+                            ...editingCampaign,
+                            galleryImages: [...current, newImg],
+                          });
+                          setGalleryImageUrl('');
+                          setGalleryCaption('');
+                          setGalleryCaptionSinhala('');
+                          showToast('Gallery image added!');
+                        }}
+                        className="px-5 py-2 bg-[#540d18] hover:bg-[#6e1322] border border-[#dfb56c] text-[#f7e2a9] text-xs font-mono font-bold rounded flex items-center gap-1.5 cursor-pointer shadow transition-all"
+                      >
+                        <Plus className="w-3.5 h-3.5 text-[#dfb56c]" />
+                        <span>Add to Gallery / ගැලරියට එක් කරන්න</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Gallery Grid List */}
+                  <div className="space-y-3 pt-2">
+                    <span className="text-xs font-mono uppercase text-[#dfb56c] font-bold block">
+                      Active Gallery Images ({(editingCampaign.galleryImages || []).length})
+                    </span>
+
+                    {(!editingCampaign.galleryImages || editingCampaign.galleryImages.length === 0) ? (
+                      <div className="p-6 text-center rounded-lg bg-black/40 border border-dashed border-white/10 text-xs text-[#a89f91] font-sinhala">
+                        තවම ගැලරියට ඡායාරූප එක් කර නැත. ඉහත Presets හෝ Image URL භාවිතයෙන් ඡායාරූප එක් කරන්න.
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        {editingCampaign.galleryImages.map((img, iIdx) => (
+                          <div
+                            key={img.id || iIdx}
+                            className="rounded-lg overflow-hidden border border-white/15 bg-black/70 group relative shadow-md"
+                          >
+                            <div className="aspect-video w-full bg-zinc-900 relative">
+                              <img
+                                src={img.imageUrl}
+                                alt={img.caption || 'Gallery photo'}
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const updated = (editingCampaign.galleryImages || []).filter((_, i) => i !== iIdx);
+                                  setEditingCampaign({ ...editingCampaign, galleryImages: updated });
+                                  showToast('Gallery image removed');
+                                }}
+                                className="absolute top-2 right-2 p-1 rounded-full bg-red-950/80 border border-red-500 text-red-200 hover:bg-red-900 cursor-pointer shadow"
+                                title="Delete image"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                              {img.tag && (
+                                <span className="absolute bottom-2 left-2 px-1.5 py-0.5 rounded text-[9px] font-mono bg-black/80 text-[#dfb56c] border border-white/10">
+                                  {img.tag}
+                                </span>
+                              )}
+                            </div>
+                            <div className="p-2 space-y-0.5">
+                              <p className="text-[11px] font-bold text-white truncate">
+                                {img.caption || `Image #${iIdx + 1}`}
+                              </p>
+                              {img.captionSinhala && (
+                                <p className="text-[10px] text-[#a89f91] font-sinhala truncate">
+                                  {img.captionSinhala}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* TAB: CERTIFICATE SHOWCASE CUSTOMIZER */}
+              {campaignEditorTab === 'certificate' && (
+                <div className="space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/10 pb-3">
+                    <div>
+                      <h4 className="text-sm font-bold text-white font-editorial flex items-center gap-2">
+                        <Award className="w-4 h-4 text-[#dfb56c]" />
+                        <span>Course Certificate Showcase / රජයේ පිළිගත් ඩිප්ලෝමා සහතිකය</span>
+                      </h4>
+                      <p className="text-xs text-[#a89f91] font-sinhala">
+                        පාඨමාලාව සාර්ථකව අවසන් කිරීමෙන් පසු සිසුවාට පිරිනමන රජයේ පිළිගත් සහතිකයේ ඡායාරූපය සහ විස්තර මෙහි සකසන්න.
+                      </p>
+                    </div>
+
+                    <span className="text-xs font-mono px-2 py-0.5 rounded bg-emerald-950 border border-emerald-500 text-emerald-300">
+                      TVEC / NVQ Aligned
+                    </span>
+                  </div>
+
+                  {/* Certificate Image URL input & presets */}
+                  <div className="p-4 rounded-lg bg-black/70 border border-[#dfb56c]/40 space-y-3 shadow-lg">
+                    <div>
+                      <label className="block text-xs font-mono uppercase text-[#dfb56c] mb-1 font-bold">
+                        Certificate Preview Image URL *
+                      </label>
+                      <input
+                        type="url"
+                        value={editingCampaign.certificateImageUrl || ''}
+                        onChange={(e) =>
+                          setEditingCampaign({ ...editingCampaign, certificateImageUrl: e.target.value })
+                        }
+                        placeholder="https://... or paste certificate sample image link"
+                        className="w-full px-3 py-2 bg-[#140b0e] border border-white/15 rounded text-xs text-white font-mono focus:border-[#dfb56c] outline-none"
+                      />
+                    </div>
+
+                    {/* Quick Presets for Certificate */}
+                    <div>
+                      <span className="block text-[10px] font-mono text-[#a89f91] mb-1">
+                        ⚡ Quick Presets / ආදර්ශ සහතික ආකෘති:
+                      </span>
+                      <div className="flex flex-wrap gap-1.5 text-xs">
+                        {[
+                          { label: '📜 Gold Foil Diplôme de Haute Couture', url: 'https://images.unsplash.com/photo-1589330694653-dad6d3240a2b?auto=format&fit=crop&w=1000&q=80' },
+                          { label: '🎖️ TVEC Recognized Fashion Certificate', url: 'https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?auto=format&fit=crop&w=1000&q=80' },
+                        ].map((preset, pIdx) => (
+                          <button
+                            key={pIdx}
+                            type="button"
+                            onClick={() =>
+                              setEditingCampaign({
+                                ...editingCampaign,
+                                certificateImageUrl: preset.url,
+                                certificateHeading: editingCampaign.certificateHeading || 'Diploma in Professional Dressmaking & Fashion Tech',
+                                certificateHeadingSinhala: editingCampaign.certificateHeadingSinhala || 'වෘත්තීය මෝස්තර නිර්මාණ සහ ඇඳුම් මැහුම් ඩිප්ලෝමා සහතිකය',
+                                certificateIssuer: editingCampaign.certificateIssuer || 'Tertiary and Vocational Education Commission (TVEC) Aligned',
+                                certificateIssuerSinhala: editingCampaign.certificateIssuerSinhala || 'තෘතියික හා වෘත්තීය අධ්‍යාපන කොමිෂන් සභා (TVEC) ප්‍රමිතීන්ට අනුකූලයි',
+                              })
+                            }
+                            className="px-2.5 py-1 rounded bg-[#1c1013] border border-white/10 hover:border-[#dfb56c] text-[#dfb56c] text-[11px] font-mono cursor-pointer transition-all hover:bg-[#540d18]/40"
+                          >
+                            {preset.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Certificate Titles & Texts */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-mono uppercase text-[#dfb56c] mb-1 font-bold">
+                        Certificate Heading (English)
+                      </label>
+                      <input
+                        type="text"
+                        value={editingCampaign.certificateHeading || ''}
+                        onChange={(e) =>
+                          setEditingCampaign({ ...editingCampaign, certificateHeading: e.target.value })
+                        }
+                        placeholder="e.g. Diploma in Professional Dressmaking & Fashion Tech"
+                        className="w-full px-3 py-2 bg-[#140b0e] border border-white/15 rounded text-xs text-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-mono uppercase text-[#dfb56c] mb-1 font-bold">
+                        Certificate Heading (Sinhala)
+                      </label>
+                      <input
+                        type="text"
+                        value={editingCampaign.certificateHeadingSinhala || ''}
+                        onChange={(e) =>
+                          setEditingCampaign({ ...editingCampaign, certificateHeadingSinhala: e.target.value })
+                        }
+                        placeholder="උදා: වෘත්තීය මෝස්තර නිර්මාණ සහ ඇඳුම් මැහුම් ඩිප්ලෝමා සහතිකය"
+                        className="w-full px-3 py-2 bg-[#140b0e] border border-white/15 rounded text-xs text-white font-sinhala"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-mono uppercase text-[#dfb56c] mb-1 font-bold">
+                        Accreditation Authority (English)
+                      </label>
+                      <input
+                        type="text"
+                        value={editingCampaign.certificateIssuer || ''}
+                        onChange={(e) =>
+                          setEditingCampaign({ ...editingCampaign, certificateIssuer: e.target.value })
+                        }
+                        placeholder="TVEC / NVQ Government Aligned Academy Certification"
+                        className="w-full px-3 py-2 bg-[#140b0e] border border-white/15 rounded text-xs text-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-mono uppercase text-[#dfb56c] mb-1 font-bold">
+                        Accreditation Authority (Sinhala)
+                      </label>
+                      <input
+                        type="text"
+                        value={editingCampaign.certificateIssuerSinhala || ''}
+                        onChange={(e) =>
+                          setEditingCampaign({ ...editingCampaign, certificateIssuerSinhala: e.target.value })
+                        }
+                        placeholder="තෘතියික හා වෘත්තීය අධ්‍යාපන කොමිෂන් සභා ප්‍රමිතීන්ට අනුකූලයි"
+                        className="w-full px-3 py-2 bg-[#140b0e] border border-white/15 rounded text-xs text-white font-sinhala"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-mono uppercase text-[#dfb56c] mb-1 font-bold">
+                      Certificate Description &amp; Career Value (Sinhala &amp; English)
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={editingCampaign.certificateDescriptionSinhala || editingCampaign.certificateDescription || ''}
+                      onChange={(e) =>
+                        setEditingCampaign({
+                          ...editingCampaign,
+                          certificateDescriptionSinhala: e.target.value,
+                          certificateDescription: e.target.value,
+                        })
+                      }
+                      placeholder="පාඨමාලා කටයුතු, ප්‍රායෝගික පරීක්ෂණ සහ ඇඳුම් නිර්මාණ එකතුව සාර්ථකව අවසන් කිරීමෙන් පසු රජයේ පිළිගත් නිල සහතිකය පිරිනැමේ. දේශීය සහ විදේශීය රැකියා සඳහා සුදුසුකම් ලබයි."
+                      className="w-full px-3.5 py-2.5 bg-[#140b0e] border border-white/15 rounded text-xs text-white leading-relaxed font-sinhala"
+                    />
+                  </div>
+
+                  {/* Certificate Live Preview */}
+                  {editingCampaign.certificateImageUrl && (
+                    <div className="p-4 rounded-xl bg-gradient-to-r from-[#1c1013] to-[#120a0d] border-2 border-[#dfb56c] flex flex-col sm:flex-row items-center gap-4 shadow-xl">
+                      <div className="w-36 h-28 shrink-0 rounded-lg overflow-hidden border border-[#dfb56c] bg-black shadow-lg">
+                        <img
+                          src={editingCampaign.certificateImageUrl}
+                          alt="Certificate Preview"
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <span className="px-2 py-0.5 rounded bg-[#dfb56c] text-black font-mono text-[10px] font-bold">
+                          Official Certificate
+                        </span>
+                        <h4 className="text-sm font-bold text-white font-editorial">
+                          {editingCampaign.certificateHeading || 'Diploma in Professional Dressmaking'}
+                        </h4>
+                        <p className="text-xs text-[#dfb56c] font-sinhala">
+                          {editingCampaign.certificateIssuerSinhala || editingCampaign.certificateIssuer || 'TVEC / NVQ Aligned'}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* TAB 6: PDF BROCHURE */}
               {campaignEditorTab === 'pdf' && (
                 <div className="space-y-4">
                   <div>

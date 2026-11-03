@@ -52,6 +52,8 @@ import {
   CampaignFormFieldConfig,
   CampaignCustomField,
   CampaignLeadFollowUp,
+  WhatsAppMessageTemplate,
+  BankAccount,
 } from '../types';
 import {
   DEFAULT_SITE_SETTINGS,
@@ -73,6 +75,8 @@ import {
   DEFAULT_STUDENT_REVIEWS,
   DEFAULT_CAMPAIGNS,
   DEFAULT_CAMPAIGN_LEADS,
+  DEFAULT_WHATSAPP_TEMPLATES,
+  DEFAULT_BANK_ACCOUNTS,
 } from '../lib/defaults';
 import { useAuth } from './AuthContext';
 import { parseYouTubeVideoId, getYouTubeThumbnailUrl } from '../lib/mediaUtils';
@@ -179,6 +183,15 @@ interface DataContextType {
     followUpId: string
   ) => Promise<void>;
   deleteCampaignLead: (id: string) => Promise<void>;
+  whatsappTemplates: WhatsAppMessageTemplate[];
+  saveWhatsAppTemplate: (template: Partial<WhatsAppMessageTemplate> & { name: string; message: string }) => Promise<void>;
+  deleteWhatsAppTemplate: (id: string) => Promise<void>;
+  resetDefaultWhatsAppTemplates: () => Promise<void>;
+  bankAccounts: BankAccount[];
+  saveBankAccount: (account: Partial<BankAccount> & { bankName: string; accountNumber: string; accountName: string; branch: string }) => Promise<void>;
+  deleteBankAccount: (id: string) => Promise<void>;
+  setDefaultBankAccount: (id: string) => Promise<void>;
+  resetDefaultBankAccounts: () => Promise<void>;
   saveStudentReview: (rev: Partial<StudentReviewItem> & { studentName: string; youtubeUrl: string }) => Promise<void>;
   deleteStudentReview: (id: string) => Promise<void>;
   toggleReviewApproval: (id: string, approved: boolean) => Promise<void>;
@@ -339,6 +352,12 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [campaignLeads, setCampaignLeads] = useState<CampaignLead[]>(() =>
     loadInitial<CampaignLead[]>('css_campaign_leads', DEFAULT_CAMPAIGN_LEADS)
   );
+  const [whatsappTemplates, setWhatsappTemplates] = useState<WhatsAppMessageTemplate[]>(() =>
+    loadInitial<WhatsAppMessageTemplate[]>('css_whatsapp_templates', DEFAULT_WHATSAPP_TEMPLATES)
+  );
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>(() =>
+    loadInitial<BankAccount[]>('css_bank_accounts', DEFAULT_BANK_ACCOUNTS)
+  );
   const [isLoading, setIsLoading] = useState(true);
 
   // 2. Real-Time Cloud Firestore Sync for ALL Content & Backend Changes
@@ -482,6 +501,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     bindSync<StudentReviewItem>('student_reviews', setStudentReviews, DEFAULT_STUDENT_REVIEWS, (a, b) => (a.order ?? 0) - (b.order ?? 0));
     bindSync<CampaignPage>('campaigns', setCampaigns, DEFAULT_CAMPAIGNS, (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     bindSync<CampaignLead>('campaign_leads', setCampaignLeads, DEFAULT_CAMPAIGN_LEADS, (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    bindSync<WhatsAppMessageTemplate>('whatsapp_templates', setWhatsappTemplates, DEFAULT_WHATSAPP_TEMPLATES, (a, b) => (a.order ?? 0) - (b.order ?? 0));
+    bindSync<BankAccount>('bank_accounts', setBankAccounts, DEFAULT_BANK_ACCOUNTS, (a, b) => (a.order ?? 0) - (b.order ?? 0));
 
     // 3. Registrations Persistent Real-Time Sync (Instantaneously updates upon document mutation)
     try {
@@ -2113,6 +2134,168 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const saveWhatsAppTemplate = async (template: Partial<WhatsAppMessageTemplate> & { name: string; message: string }) => {
+    const id = template.id || `tpl-${Date.now()}`;
+    const timestamp = new Date().toISOString();
+    const item: WhatsAppMessageTemplate = {
+      id,
+      name: template.name.trim(),
+      nameSinhala: template.nameSinhala?.trim() || undefined,
+      category: template.category || 'lead_crm',
+      badge: template.badge?.trim() || 'Custom',
+      badgeBg: template.badgeBg || 'bg-amber-950/70',
+      badgeBorder: template.badgeBorder || 'border-amber-500/50',
+      badgeText: template.badgeText || 'text-amber-300',
+      description: template.description?.trim() || undefined,
+      message: template.message.trim(),
+      isDefault: template.isDefault ?? false,
+      order: template.order ?? (whatsappTemplates.length + 1),
+      updatedAt: timestamp,
+    };
+
+    const nextTemplates = [...whatsappTemplates.filter((t) => t.id !== id), item].sort(
+      (a, b) => (a.order ?? 0) - (b.order ?? 0)
+    );
+    setWhatsappTemplates(nextTemplates);
+    try {
+      localStorage.setItem('css_whatsapp_templates', JSON.stringify(nextTemplates));
+    } catch (_) {}
+    try {
+      await setDoc(doc(db, 'whatsapp_templates', id), cleanForFirestore(item), { merge: true });
+    } catch (err) {
+      console.warn('Could not save whatsapp_template to Firestore:', err);
+    }
+    addAuditLog('WhatsApp Template Saved', `Template "${item.name}" saved to database.`);
+  };
+
+  const deleteWhatsAppTemplate = async (id: string) => {
+    const nextTemplates = whatsappTemplates.filter((t) => t.id !== id);
+    setWhatsappTemplates(nextTemplates);
+    try {
+      localStorage.setItem('css_whatsapp_templates', JSON.stringify(nextTemplates));
+    } catch (_) {}
+    try {
+      await deleteDoc(doc(db, 'whatsapp_templates', id));
+    } catch (err) {
+      console.warn('Could not delete whatsapp_template from Firestore:', err);
+    }
+    addAuditLog('WhatsApp Template Deleted', `Template ID ${id} deleted.`);
+  };
+
+  const resetDefaultWhatsAppTemplates = async () => {
+    setWhatsappTemplates(DEFAULT_WHATSAPP_TEMPLATES);
+    try {
+      localStorage.setItem('css_whatsapp_templates', JSON.stringify(DEFAULT_WHATSAPP_TEMPLATES));
+    } catch (_) {}
+    try {
+      for (const tpl of DEFAULT_WHATSAPP_TEMPLATES) {
+        await setDoc(doc(db, 'whatsapp_templates', tpl.id), cleanForFirestore(tpl), { merge: true });
+      }
+    } catch (e) {
+      console.warn('Error resetting default whatsapp templates:', e);
+    }
+    addAuditLog('WhatsApp Templates Reset', 'WhatsApp templates reset to defaults.');
+  };
+
+  const saveBankAccount = async (account: Partial<BankAccount> & { bankName: string; accountNumber: string; accountName: string; branch: string }) => {
+    const id = account.id || `bank-${Date.now()}`;
+    const isFirst = bankAccounts.length === 0;
+    const isDefault = account.isDefault !== undefined ? account.isDefault : isFirst;
+
+    const item: BankAccount = {
+      id,
+      bankName: account.bankName.trim(),
+      accountNumber: account.accountNumber.trim(),
+      accountName: account.accountName.trim(),
+      branch: account.branch.trim(),
+      swiftCode: account.swiftCode?.trim() || undefined,
+      currency: account.currency || 'LKR',
+      isDefault,
+      isActive: account.isActive !== undefined ? account.isActive : true,
+      notes: account.notes?.trim() || undefined,
+      order: account.order || (bankAccounts.length + 1),
+      updatedAt: new Date().toISOString(),
+    };
+
+    let nextAccounts: BankAccount[];
+    if (isDefault) {
+      nextAccounts = bankAccounts.map((b) => (b.id === id ? item : { ...b, isDefault: false }));
+      if (!bankAccounts.some((b) => b.id === id)) {
+        nextAccounts.push(item);
+      }
+    } else {
+      const exists = bankAccounts.some((b) => b.id === id);
+      nextAccounts = exists ? bankAccounts.map((b) => (b.id === id ? item : b)) : [...bankAccounts, item];
+    }
+
+    setBankAccounts(nextAccounts);
+    try {
+      localStorage.setItem('css_bank_accounts', JSON.stringify(nextAccounts));
+    } catch (_) {}
+
+    try {
+      await setDoc(doc(db, 'bank_accounts', id), cleanForFirestore(item), { merge: true });
+      if (isDefault) {
+        for (const other of bankAccounts) {
+          if (other.id !== id && other.isDefault) {
+            await setDoc(doc(db, 'bank_accounts', other.id), { isDefault: false }, { merge: true });
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('Could not save bank_account to Firestore:', err);
+    }
+    addAuditLog('Bank Account Saved', `Account "${item.bankName} - ${item.accountNumber}" saved to database.`);
+  };
+
+  const deleteBankAccount = async (id: string) => {
+    const nextAccounts = bankAccounts.filter((b) => b.id !== id);
+    if (nextAccounts.length > 0 && !nextAccounts.some((b) => b.isDefault)) {
+      nextAccounts[0].isDefault = true;
+    }
+    setBankAccounts(nextAccounts);
+    try {
+      localStorage.setItem('css_bank_accounts', JSON.stringify(nextAccounts));
+    } catch (_) {}
+    try {
+      await deleteDoc(doc(db, 'bank_accounts', id));
+    } catch (err) {
+      console.warn('Could not delete bank_account from Firestore:', err);
+    }
+    addAuditLog('Bank Account Deleted', `Bank Account ID ${id} deleted.`);
+  };
+
+  const setDefaultBankAccount = async (id: string) => {
+    const nextAccounts = bankAccounts.map((b) => ({ ...b, isDefault: b.id === id }));
+    setBankAccounts(nextAccounts);
+    try {
+      localStorage.setItem('css_bank_accounts', JSON.stringify(nextAccounts));
+    } catch (_) {}
+    try {
+      for (const b of nextAccounts) {
+        await setDoc(doc(db, 'bank_accounts', b.id), { isDefault: b.id === id }, { merge: true });
+      }
+    } catch (err) {
+      console.warn('Could not update default bank account in Firestore:', err);
+    }
+    addAuditLog('Default Bank Account Changed', `Bank Account ID ${id} set as default.`);
+  };
+
+  const resetDefaultBankAccounts = async () => {
+    setBankAccounts(DEFAULT_BANK_ACCOUNTS);
+    try {
+      localStorage.setItem('css_bank_accounts', JSON.stringify(DEFAULT_BANK_ACCOUNTS));
+    } catch (_) {}
+    try {
+      for (const acc of DEFAULT_BANK_ACCOUNTS) {
+        await setDoc(doc(db, 'bank_accounts', acc.id), cleanForFirestore(acc), { merge: true });
+      }
+    } catch (e) {
+      console.warn('Error resetting default bank accounts:', e);
+    }
+    addAuditLog('Bank Accounts Reset', 'Bank accounts restored to default system accounts.');
+  };
+
   const saveStudentReview = async (rev: Partial<StudentReviewItem> & { studentName: string; youtubeUrl: string }) => {
     const id = rev.id || `rev-${Date.now()}`;
     let videoId = rev.videoId || '';
@@ -2918,6 +3101,15 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         updateCampaignLeadFollowUp,
         deleteCampaignLeadFollowUp,
         deleteCampaignLead,
+        whatsappTemplates,
+        saveWhatsAppTemplate,
+        deleteWhatsAppTemplate,
+        resetDefaultWhatsAppTemplates,
+        bankAccounts,
+        saveBankAccount,
+        deleteBankAccount,
+        setDefaultBankAccount,
+        resetDefaultBankAccounts,
         saveStudentReview,
         deleteStudentReview,
         toggleReviewApproval,

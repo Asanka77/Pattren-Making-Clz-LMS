@@ -17,12 +17,18 @@ import {
   CampaignFollowUpPriority,
   CampaignCoursePoint,
   CampaignGalleryImage,
+  CampaignPostImage,
+  CampaignSectionBanner,
+  CampaignBannerPosition,
+  WhatsAppMessageTemplate,
+  BankAccount,
 } from '../../types';
 import { useData } from '../../context/DataContext';
 import {
   Flame,
   Plus,
   Edit,
+  Edit3,
   Trash2,
   Copy,
   ExternalLink,
@@ -66,6 +72,14 @@ import {
   Tag,
   Award,
   Image as ImageIcon,
+  Settings,
+  CreditCard,
+  Building,
+  Layers,
+  ArrowUp,
+  ArrowDown,
+  Sliders,
+  Megaphone,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
@@ -182,11 +196,20 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
     updateCampaignLeadFollowUp,
     deleteCampaignLeadFollowUp,
     deleteCampaignLead,
+    whatsappTemplates,
+    saveWhatsAppTemplate,
+    deleteWhatsAppTemplate,
+    resetDefaultWhatsAppTemplates,
+    bankAccounts,
+    saveBankAccount,
+    deleteBankAccount,
+    setDefaultBankAccount,
+    resetDefaultBankAccounts,
     courses,
   } = useData();
 
   // Tab state within Campaign Admin
-  const [activeTab, setActiveTab] = useState<'campaigns' | 'leads'>('campaigns');
+  const [activeTab, setActiveTab] = useState<'campaigns' | 'leads' | 'templates' | 'banks'>('campaigns');
 
   // Search & Filter
   const [searchTerm, setSearchTerm] = useState('');
@@ -197,7 +220,7 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
   // Edit Campaign State
   const [editingCampaign, setEditingCampaign] = useState<CampaignPage | null>(null);
   const [campaignEditorTab, setCampaignEditorTab] = useState<
-    'basics' | 'about' | 'videos' | 'gallery' | 'certificate' | 'pdf' | 'reviews' | 'pricing' | 'form'
+    'basics' | 'about' | 'posts' | 'banners' | 'videos' | 'gallery' | 'certificate' | 'pdf' | 'reviews' | 'pricing' | 'form'
   >('basics');
 
   // Course Points Builder State (Tab 2: About)
@@ -205,6 +228,30 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
   const [pointText, setPointText] = useState('');
   const [pointTextSinhala, setPointTextSinhala] = useState('');
   const [pointBadge, setPointBadge] = useState('');
+
+  // Promotional Post Images Builder State (Tab: Promo Posts)
+  const [postImageUrl, setPostImageUrl] = useState('');
+  const [postTitle, setPostTitle] = useState('');
+  const [postTitleSinhala, setPostTitleSinhala] = useState('');
+  const [postCaption, setPostCaption] = useState('');
+  const [postCaptionSinhala, setPostCaptionSinhala] = useState('');
+  const [postBadge, setPostBadge] = useState('🔥 New Workshop');
+  const [isUploadingPostImage, setIsUploadingPostImage] = useState(false);
+
+  // Inter-Section Web Banners Builder State (Tab: Web Banners)
+  const [bannerPosition, setBannerPosition] = useState<CampaignBannerPosition>('after_hero');
+  const [bannerType, setBannerType] = useState<'graphic' | 'image'>('graphic');
+  const [bannerImageUrl, setBannerImageUrl] = useState('');
+  const [bannerTitle, setBannerTitle] = useState('Get Rs. 7,500 Off When You Enroll This Week!');
+  const [bannerTitleSinhala, setBannerTitleSinhala] = useState('මෙම සතියේ ලියාපදිංචි වන සිසුන්ට රු. 7,500 ක සුවිශේෂී වට්ටමක්!');
+  const [bannerSubtitle, setBannerSubtitle] = useState('Includes Free Pattern Drafting Kit & Lifetime Atelier Support');
+  const [bannerSubtitleSinhala, setBannerSubtitleSinhala] = useState('නොමිලේ Pattern Drafting Kit එක සහ ජීවිත කාලයටම උපදෙස් සහය');
+  const [bannerBadge, setBannerBadge] = useState('💎 EXCLUSIVE BONUS');
+  const [bannerButtonText, setBannerButtonText] = useState('Claim Discount Now');
+  const [bannerButtonTextSinhala, setBannerButtonTextSinhala] = useState('දැන්ම ලියාපදිංචි වන්න');
+  const [bannerButtonLink, setBannerButtonLink] = useState('#register-form');
+  const [bannerBgColor, setBannerBgColor] = useState('from-[#3a0910] via-[#1a080d] to-[#0d0507]');
+  const [isUploadingBannerImage, setIsUploadingBannerImage] = useState(false);
 
   // Gallery Images Builder State (Tab 4: Gallery)
   const [galleryImageUrl, setGalleryImageUrl] = useState('');
@@ -245,8 +292,41 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
 
   // Direct WhatsApp Modal State
   const [whatsappModalLead, setWhatsappModalLead] = useState<CampaignLead | null>(null);
-  const [whatsappTemplateType, setWhatsappTemplateType] = useState<'welcome' | 'no_answer' | 'payment' | 'custom'>('no_answer');
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('tpl-no-answer');
   const [customWhatsappMessage, setCustomWhatsappMessage] = useState<string>('');
+
+  // WhatsApp Backend Template Manager State
+  const [editingTemplate, setEditingTemplate] = useState<WhatsAppMessageTemplate | null>(null);
+  const [isAddingTemplate, setIsAddingTemplate] = useState(false);
+  const [templateName, setTemplateName] = useState('');
+  const [templateNameSinhala, setTemplateNameSinhala] = useState('');
+  const [templateBadge, setTemplateBadge] = useState('');
+  const [templateCategory, setTemplateCategory] = useState<'lead_crm' | 'general' | 'payment' | 'followup'>('lead_crm');
+  const [templateMessage, setTemplateMessage] = useState('');
+  const [templateDescription, setTemplateDescription] = useState('');
+
+  // Bank Accounts Manager State
+  const [editingBankAccount, setEditingBankAccount] = useState<BankAccount | null>(null);
+  const [isAddingBankAccount, setIsAddingBankAccount] = useState(false);
+  const [bankNameInput, setBankNameInput] = useState('');
+  const [accountNumberInput, setAccountNumberInput] = useState('');
+  const [accountNameInput, setAccountNameInput] = useState('Ceylon Style Studio (Pvt) Ltd');
+  const [branchInput, setBranchInput] = useState('');
+  const [swiftCodeInput, setSwiftCodeInput] = useState('');
+  const [currencyInput, setCurrencyInput] = useState('LKR');
+  const [bankNotesInput, setBankNotesInput] = useState('');
+  const [isDefaultBankInput, setIsDefaultBankInput] = useState(false);
+  const [isActiveBankInput, setIsActiveBankInput] = useState(true);
+
+  // Selected Bank Account in Direct WhatsApp Modal & In-Modal template quick editor
+  const [selectedBankAccountId, setSelectedBankAccountId] = useState<string>('');
+  const [isEditingTemplateInModal, setIsEditingTemplateInModal] = useState(false);
+  const [isAddingTemplateInModal, setIsAddingTemplateInModal] = useState(false);
+  const [modalTemplateName, setModalTemplateName] = useState('');
+  const [modalTemplateNameSinhala, setModalTemplateNameSinhala] = useState('');
+  const [modalTemplateBadge, setModalTemplateBadge] = useState('Custom');
+  const [modalTemplateCategory, setModalTemplateCategory] = useState<'lead_crm' | 'general' | 'payment' | 'followup'>('lead_crm');
+  const [modalTemplateMessage, setModalTemplateMessage] = useState('');
 
   // Cover Image Upload State
   const [isUploadingCoverImage, setIsUploadingCoverImage] = useState(false);
@@ -556,22 +636,294 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
     showToast('Custom field removed.');
   };
 
-  // WhatsApp Message Generator
-  const getWhatsAppMessageText = (lead: CampaignLead, template: 'welcome' | 'no_answer' | 'payment' | 'custom'): string => {
-    const campaign = campaigns.find((c) => c.slug === lead.campaignSlug || c.id === lead.campaignId);
-    const campaignTitle = campaign?.title || lead.campaignTitle;
-    const priceText = campaign ? `රු. ${(campaign.discountPrice ?? 7500).toLocaleString()}` : '50% විශේෂ වට්ටම';
+  // WhatsApp Backend Template Handlers
+  const handleStartEditTemplate = (tpl: WhatsAppMessageTemplate) => {
+    setEditingTemplate(tpl);
+    setIsAddingTemplate(false);
+    setTemplateName(tpl.name);
+    setTemplateNameSinhala(tpl.nameSinhala || '');
+    setTemplateBadge(tpl.badge || '');
+    setTemplateCategory(tpl.category || 'lead_crm');
+    setTemplateMessage(tpl.message);
+    setTemplateDescription(tpl.description || '');
+  };
 
-    if (template === 'no_answer') {
-      return `හෙලෝ ${lead.fullName}, Ceylon Style Studio වෙතින්.\n\nඔබ අපගේ "${campaignTitle}" පාඨමාලාව සඳහා Facebook හරහා ආසනයක් වෙන්කරගෙන තිබුණි (Ref: ${lead.id}). ඒ පිළිබඳව වැඩිදුර තොරතුරු ලබාදීමට අපි ඔබට දුරකථන ඇමතුමක් ගත්තද සම්බන්ධ කරගත නොහැකි විය.\n\nඔබට පන්ති ආරම්භක දිනයන් සහ ගාස්තු ගෙවීමේ ක්‍රම පිළිබඳව විස්තර දැනගැනීමට අවශ්‍ය නම් කරුණාකර මෙම WhatsApp අංකයට පණිවිඩයක් එවන්න. ස්තූතියි!`;
+  const handleSaveTemplate = async () => {
+    if (!templateName.trim()) {
+      showToast('Please enter template name!');
+      return;
     }
-    if (template === 'payment') {
-      return `හෙලෝ ${lead.fullName}, Ceylon Style Studio වෙතින්.\n\nඔබගේ "${campaignTitle}" ආසනය සහ ${priceText} විශේෂ වට්ටම තහවුරු කරගැනීම සඳහා බැංකු ගිණුම් විස්තර පහත පරිදි වේ:\n\n• Bank: Commercial Bank\n• Account Name: Ceylon Style Studio (Pvt) Ltd\n• Account Number: 1000548923\n• Branch: Kurunegala\n\nමුදල් තැන්පත් කිරීමෙන් පසු රිසිට්පත (Bank Slip / Screenshot) මෙම WhatsApp අංකයට යොමුකරන්න. Ref ID: ${lead.id}. ස්තූතියි!`;
+    if (!templateMessage.trim()) {
+      showToast('Please enter message text!');
+      return;
     }
-    if (template === 'welcome') {
-      return `හෙලෝ ${lead.fullName}, Ceylon Style Studio විලාසිතා ඇකඩමිය වෙත සාදරයෙන් පිළිගනිමු!\n\nඔබ "${campaignTitle}" පාඨමාලාව සඳහා සාර්ථකව ලියාපදිංචි වී ඇත. (Ref: ${lead.id})\n\n• පාඨමාලා ගාස්තුව: ${priceText}\n• තෝරාගත් ශාඛාව: ${lead.preferredLocation || lead.city || 'Kurunegala Atelier'}\n• ඉගෙනුම් ක්‍රමය: ${lead.studyMode === 'PHYSICAL' ? 'ප්‍රායෝගික වැඩමුළු (Physical)' : 'සජීවී ඔන්ලයින් (Live Zoom)'}\n\nඅපගේ ඇතුළත් කිරීම් අංශය මගින් වැඩිදුර තොරතුරු සහ කාලසටහන ඔබට දැනුම් දෙනු ඇත. ඔබට කිසියම් ගැටලුවක් ඇත්නම් මෙහි සටහන් කරන්න.`;
+
+    if (editingTemplate) {
+      await saveWhatsAppTemplate({
+        ...editingTemplate,
+        name: templateName.trim(),
+        nameSinhala: templateNameSinhala.trim() || undefined,
+        badge: templateBadge.trim() || undefined,
+        category: templateCategory,
+        message: templateMessage.trim(),
+        description: templateDescription.trim() || undefined,
+        updatedAt: new Date().toISOString(),
+      });
+      showToast(`Template "${templateName}" updated & saved to backend!`);
+      setEditingTemplate(null);
+    } else {
+      const newTpl: WhatsAppMessageTemplate = {
+        id: `tpl-${Date.now()}`,
+        name: templateName.trim(),
+        nameSinhala: templateNameSinhala.trim() || undefined,
+        badge: templateBadge.trim() || undefined,
+        category: templateCategory,
+        message: templateMessage.trim(),
+        description: templateDescription.trim() || undefined,
+        isDefault: false,
+        order: whatsappTemplates.length + 1,
+        updatedAt: new Date().toISOString(),
+      };
+      await saveWhatsAppTemplate(newTpl);
+      showToast(`New WhatsApp template "${templateName}" saved to backend!`);
+      setIsAddingTemplate(false);
     }
-    return customWhatsappMessage;
+  };
+
+  const handleDeleteTemplate = async (tplId: string, tplName: string) => {
+    if (confirm(`Are you sure you want to delete template "${tplName}"?`)) {
+      await deleteWhatsAppTemplate(tplId);
+      showToast(`Template "${tplName}" deleted.`);
+    }
+  };
+
+  const handleResetTemplates = async () => {
+    if (confirm('Reset WhatsApp templates to default system templates? Custom changes will be restored to defaults.')) {
+      await resetDefaultWhatsAppTemplates();
+      showToast('WhatsApp templates reset to defaults.');
+    }
+  };
+
+  const handleSaveTemplateFromModal = async () => {
+    if (!modalTemplateName.trim()) {
+      showToast('Please enter template name!');
+      return;
+    }
+    if (!modalTemplateMessage.trim()) {
+      showToast('Please enter message text!');
+      return;
+    }
+
+    if (isEditingTemplateInModal) {
+      const current = whatsappTemplates.find((t) => t.id === selectedTemplateId);
+      if (current) {
+        const updated: WhatsAppMessageTemplate = {
+          ...current,
+          name: modalTemplateName.trim(),
+          nameSinhala: modalTemplateNameSinhala.trim() || undefined,
+          badge: modalTemplateBadge.trim() || undefined,
+          category: modalTemplateCategory,
+          message: modalTemplateMessage.trim(),
+          updatedAt: new Date().toISOString(),
+        };
+        await saveWhatsAppTemplate(updated);
+        showToast(`Template "${modalTemplateName}" updated and saved to database!`);
+        if (whatsappModalLead) {
+          const targetBank = bankAccounts.find((b) => b.id === selectedBankAccountId);
+          setCustomWhatsappMessage(formatTemplateForLead(updated.message, whatsappModalLead, targetBank));
+        }
+      }
+    } else {
+      const newTpl: WhatsAppMessageTemplate = {
+        id: `tpl-${Date.now()}`,
+        name: modalTemplateName.trim(),
+        nameSinhala: modalTemplateNameSinhala.trim() || undefined,
+        badge: modalTemplateBadge.trim() || 'Custom',
+        category: modalTemplateCategory,
+        message: modalTemplateMessage.trim(),
+        isDefault: false,
+        order: whatsappTemplates.length + 1,
+        updatedAt: new Date().toISOString(),
+      };
+      await saveWhatsAppTemplate(newTpl);
+      setSelectedTemplateId(newTpl.id);
+      showToast(`New template "${modalTemplateName}" saved & selected!`);
+      if (whatsappModalLead) {
+        const targetBank = bankAccounts.find((b) => b.id === selectedBankAccountId);
+        setCustomWhatsappMessage(formatTemplateForLead(newTpl.message, whatsappModalLead, targetBank));
+      }
+    }
+
+    setIsAddingTemplateInModal(false);
+    setIsEditingTemplateInModal(false);
+  };
+
+  // Bank Account Handlers
+  const handleStartEditBankAccount = (acc: BankAccount) => {
+    setEditingBankAccount(acc);
+    setIsAddingBankAccount(false);
+    setBankNameInput(acc.bankName);
+    setAccountNumberInput(acc.accountNumber);
+    setAccountNameInput(acc.accountName);
+    setBranchInput(acc.branch);
+    setSwiftCodeInput(acc.swiftCode || '');
+    setCurrencyInput(acc.currency || 'LKR');
+    setBankNotesInput(acc.notes || '');
+    setIsDefaultBankInput(acc.isDefault || false);
+    setIsActiveBankInput(acc.isActive !== undefined ? acc.isActive : true);
+  };
+
+  const handleSaveBankAccount = async () => {
+    if (!bankNameInput.trim()) {
+      showToast('Please enter bank name!');
+      return;
+    }
+    if (!accountNumberInput.trim()) {
+      showToast('Please enter account number!');
+      return;
+    }
+    if (!accountNameInput.trim()) {
+      showToast('Please enter account holder name!');
+      return;
+    }
+    if (!branchInput.trim()) {
+      showToast('Please enter bank branch!');
+      return;
+    }
+
+    if (editingBankAccount) {
+      await saveBankAccount({
+        ...editingBankAccount,
+        bankName: bankNameInput.trim(),
+        accountNumber: accountNumberInput.trim(),
+        accountName: accountNameInput.trim(),
+        branch: branchInput.trim(),
+        swiftCode: swiftCodeInput.trim() || undefined,
+        currency: currencyInput.trim() || 'LKR',
+        notes: bankNotesInput.trim() || undefined,
+        isDefault: isDefaultBankInput,
+        isActive: isActiveBankInput,
+        updatedAt: new Date().toISOString(),
+      });
+      showToast(`Bank account "${bankNameInput}" updated & saved!`);
+      setEditingBankAccount(null);
+    } else {
+      const newAcc: BankAccount = {
+        id: `bank-${Date.now()}`,
+        bankName: bankNameInput.trim(),
+        accountNumber: accountNumberInput.trim(),
+        accountName: accountNameInput.trim(),
+        branch: branchInput.trim(),
+        swiftCode: swiftCodeInput.trim() || undefined,
+        currency: currencyInput.trim() || 'LKR',
+        notes: bankNotesInput.trim() || undefined,
+        isDefault: isDefaultBankInput,
+        isActive: isActiveBankInput,
+        order: bankAccounts.length + 1,
+        updatedAt: new Date().toISOString(),
+      };
+      await saveBankAccount(newAcc);
+      showToast(`New bank account "${bankNameInput}" saved to database!`);
+      setIsAddingBankAccount(false);
+    }
+  };
+
+  const handleDeleteBankAccount = async (accId: string, accName: string) => {
+    if (confirm(`Are you sure you want to delete bank account "${accName}"?`)) {
+      await deleteBankAccount(accId);
+      showToast(`Bank account "${accName}" deleted.`);
+    }
+  };
+
+  const handleResetBankAccounts = async () => {
+    if (confirm('Reset bank accounts to system defaults? Custom bank accounts will be restored.')) {
+      await resetDefaultBankAccounts();
+      showToast('Bank accounts restored to defaults.');
+    }
+  };
+
+  // Helper to replace dynamic placeholders in WhatsApp message
+  const formatTemplateForLead = (
+    templateText: string,
+    lead: CampaignLead,
+    customBank?: BankAccount
+  ): string => {
+    const campaign = campaigns.find((c) => c.slug === lead.campaignSlug || c.id === lead.campaignId);
+    const campaignTitle = campaign?.title || lead.campaignTitle || 'Fashion Design & Pattern Making';
+    const priceText = campaign ? `රු. ${(campaign.discountPrice ?? 7500).toLocaleString()}` : '50% විශේෂ වට්ටම';
+    const locationText = lead.preferredLocation || lead.city || lead.district || 'Kurunegala Atelier';
+    const studyModeText = lead.studyMode === 'PHYSICAL' ? 'ප්‍රායෝගික වැඩමුළු (Physical Atelier)' : 'සජීවී ඔන්ලයින් (Live Zoom)';
+
+    // Find active bank (customBank passed, or by selectedBankAccountId, or default, or first active)
+    const targetBank =
+      customBank ||
+      (selectedBankAccountId ? bankAccounts.find((b) => b.id === selectedBankAccountId) : undefined) ||
+      bankAccounts.find((b) => b.isDefault && b.isActive) ||
+      bankAccounts.find((b) => b.isActive) ||
+      bankAccounts[0];
+
+    const bankName = targetBank?.bankName || 'Commercial Bank of Ceylon';
+    const accountNo = targetBank?.accountNumber || '1000548923';
+    const accountName = targetBank?.accountName || 'Ceylon Style Studio (Pvt) Ltd';
+    const branch = targetBank?.branch || 'Kurunegala';
+
+    const bankDetailsFormatted = targetBank
+      ? `• Bank: ${targetBank.bankName}\n• Account Name: ${targetBank.accountName}\n• Account Number: ${targetBank.accountNumber}\n• Branch: ${targetBank.branch}${
+          targetBank.swiftCode ? `\n• SWIFT / Branch Code: ${targetBank.swiftCode}` : ''
+        }${targetBank.notes ? `\n• උපදෙස්: ${targetBank.notes}` : ''}`
+      : `• Bank: Commercial Bank\n• Account Name: Ceylon Style Studio (Pvt) Ltd\n• Account Number: 1000548923\n• Branch: Kurunegala`;
+
+    return templateText
+      .replace(/{student_name}|{name}/gi, lead.fullName)
+      .replace(/{campaign_title}|{course}/gi, campaignTitle)
+      .replace(/{ref_id}|{id}/gi, lead.id)
+      .replace(/{fee}|{price}/gi, priceText)
+      .replace(/{location}|{studio_branch}/gi, locationText)
+      .replace(/{mode}|{study_mode}/gi, studyModeText)
+      .replace(/{phone}|{number}/gi, lead.whatsappNumber)
+      .replace(/{bank_details}/gi, bankDetailsFormatted)
+      .replace(/{bank_name}/gi, bankName)
+      .replace(/{account_no}|{account_number}/gi, accountNo)
+      .replace(/{account_name}/gi, accountName)
+      .replace(/{branch}/gi, branch);
+  };
+
+  // WhatsApp Message Generator using saved backend templates
+  const getWhatsAppMessageText = (
+    lead: CampaignLead,
+    templateIdOrKey?: string,
+    customBank?: BankAccount
+  ): string => {
+    if (!templateIdOrKey) {
+      templateIdOrKey =
+        lead.callStatus === 'CALL_NO_ANSWER'
+          ? 'tpl-no-answer'
+          : lead.callStatus === 'PAYMENT_PENDING'
+          ? 'tpl-payment'
+          : 'tpl-welcome';
+    }
+
+    // Try finding by exact id
+    let found = whatsappTemplates.find((t) => t.id === templateIdOrKey);
+    // Or by partial id / key
+    if (!found) {
+      if (templateIdOrKey === 'no_answer') {
+        found = whatsappTemplates.find((t) => t.id === 'tpl-no-answer') || whatsappTemplates.find((t) => t.category === 'lead_crm');
+      } else if (templateIdOrKey === 'payment') {
+        found = whatsappTemplates.find((t) => t.id === 'tpl-payment') || whatsappTemplates.find((t) => t.category === 'payment');
+      } else if (templateIdOrKey === 'welcome') {
+        found = whatsappTemplates.find((t) => t.id === 'tpl-welcome') || whatsappTemplates[0];
+      }
+    }
+
+    if (found) {
+      return formatTemplateForLead(found.message, lead, customBank);
+    }
+
+    if (whatsappTemplates.length > 0) {
+      return formatTemplateForLead(whatsappTemplates[0].message, lead, customBank);
+    }
+    return customWhatsappMessage || '';
   };
 
   // Helper to format clean Sri Lanka WhatsApp Phone number (e.g. 077... -> 9477...)
@@ -586,16 +938,27 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
   };
 
   // Helper to generate 1-click Direct WhatsApp chat URL targeted to student's phone with pre-filled message
-  const getDirectWhatsAppUrl = (lead: CampaignLead): string => {
+  const getDirectWhatsAppUrl = (
+    lead: CampaignLead,
+    templateIdOrKey?: string,
+    overrideText?: string,
+    customBank?: BankAccount
+  ): string => {
     const cleanPhone = getCleanWhatsAppPhone(lead.whatsappNumber);
-    const template =
-      lead.callStatus === 'CALL_NO_ANSWER'
-        ? 'no_answer'
-        : lead.callStatus === 'PAYMENT_PENDING'
-        ? 'payment'
-        : 'welcome';
-    const text = getWhatsAppMessageText(lead, template);
+    const text = overrideText || getWhatsAppMessageText(lead, templateIdOrKey, customBank);
     return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`;
+  };
+
+  // 1-Click Direct Chat Opener (wa.me/<number>?text=...)
+  const launchDirectWhatsApp = (
+    lead: CampaignLead,
+    templateIdOrKey?: string,
+    overrideText?: string,
+    customBank?: BankAccount
+  ) => {
+    const url = getDirectWhatsAppUrl(lead, templateIdOrKey, overrideText, customBank);
+    window.open(url, '_blank', 'noopener,noreferrer');
+    showToast(`WhatsApp chat opened for ${lead.fullName} (${lead.whatsappNumber})!`);
   };
 
   // Helper to handle local Cover Page Hero Image file upload & canvas compression
@@ -673,6 +1036,140 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
         } finally {
           setIsUploadingCoverImage(false);
           // reset input value so user can re-upload if needed
+          e.target.value = '';
+        }
+      };
+      img.src = rawData;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Helper to handle local Promo Post Image upload & canvas compression
+  const handlePostImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      showToast('Please select a valid image file (PNG, JPG, WEBP)!');
+      return;
+    }
+
+    setIsUploadingPostImage(true);
+    const reader = new FileReader();
+    reader.onerror = () => {
+      setIsUploadingPostImage(false);
+      showToast('Failed to read image file.');
+    };
+    reader.onload = (ev) => {
+      const rawData = ev.target?.result as string;
+      if (!rawData) {
+        setIsUploadingPostImage(false);
+        return;
+      }
+
+      const img = new Image();
+      img.onerror = () => {
+        setIsUploadingPostImage(false);
+        showToast('Invalid image format.');
+      };
+      img.onload = () => {
+        try {
+          const maxDim = 1600;
+          let w = img.width;
+          let h = img.height;
+          if (w > maxDim || h > maxDim) {
+            if (w > h) {
+              h = Math.round((h * maxDim) / w);
+              w = maxDim;
+            } else {
+              w = Math.round((w * maxDim) / h);
+              h = maxDim;
+            }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, w, h);
+            const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.90);
+            setPostImageUrl(compressedDataUrl);
+            showToast('Post Image file loaded! Add details and click "Add Promotional Post".');
+          } else {
+            setPostImageUrl(rawData);
+          }
+        } catch (err) {
+          console.error(err);
+          setPostImageUrl(rawData);
+        } finally {
+          setIsUploadingPostImage(false);
+          e.target.value = '';
+        }
+      };
+      img.src = rawData;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Helper to handle local Inter-Section Banner image upload & canvas compression
+  const handleBannerImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      showToast('Please select a valid image file (PNG, JPG, WEBP)!');
+      return;
+    }
+
+    setIsUploadingBannerImage(true);
+    const reader = new FileReader();
+    reader.onerror = () => {
+      setIsUploadingBannerImage(false);
+      showToast('Failed to read banner image file.');
+    };
+    reader.onload = (ev) => {
+      const rawData = ev.target?.result as string;
+      if (!rawData) {
+        setIsUploadingBannerImage(false);
+        return;
+      }
+
+      const img = new Image();
+      img.onerror = () => {
+        setIsUploadingBannerImage(false);
+        showToast('Invalid banner image format.');
+      };
+      img.onload = () => {
+        try {
+          const maxDim = 1800;
+          let w = img.width;
+          let h = img.height;
+          if (w > maxDim || h > maxDim) {
+            if (w > h) {
+              h = Math.round((h * maxDim) / w);
+              w = maxDim;
+            } else {
+              w = Math.round((w * maxDim) / h);
+              h = maxDim;
+            }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, w, h);
+            const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.90);
+            setBannerImageUrl(compressedDataUrl);
+            showToast('Banner image loaded! Select position and click "Add Section Banner".');
+          } else {
+            setBannerImageUrl(rawData);
+          }
+        } catch (err) {
+          console.error(err);
+          setBannerImageUrl(rawData);
+        } finally {
+          setIsUploadingBannerImage(false);
           e.target.value = '';
         }
       };
@@ -864,6 +1361,30 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
             <span>Student Leads ({campaignLeads.length})</span>
           </button>
 
+          <button
+            onClick={() => setActiveTab('templates')}
+            className={`px-3.5 py-2 rounded text-xs font-mono uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${
+              activeTab === 'templates'
+                ? 'bg-[#25D366] text-black font-bold shadow'
+                : 'bg-[#0c090a] border border-white/10 text-[#a89f91] hover:text-white'
+            }`}
+          >
+            <MessageSquare className="w-3.5 h-3.5" />
+            <span>WhatsApp Templates ({whatsappTemplates.length})</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('banks')}
+            className={`px-3.5 py-2 rounded text-xs font-mono uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${
+              activeTab === 'banks'
+                ? 'bg-amber-400 text-black font-bold shadow'
+                : 'bg-[#0c090a] border border-white/10 text-[#a89f91] hover:text-white'
+            }`}
+          >
+            <Building className="w-3.5 h-3.5" />
+            <span>Bank Accounts ({bankAccounts.length})</span>
+          </button>
+
           {activeTab === 'campaigns' && (
             <button
               onClick={handleCreateNewCampaign}
@@ -881,6 +1402,47 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
             >
               <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
               <span>Export Leads (Excel)</span>
+            </button>
+          )}
+
+          {activeTab === 'templates' && (
+            <button
+              onClick={() => {
+                setEditingTemplate(null);
+                setIsAddingTemplate(true);
+                setTemplateName('');
+                setTemplateNameSinhala('');
+                setTemplateBadge('Custom');
+                setTemplateCategory('lead_crm');
+                setTemplateMessage('හෙලෝ {student_name}, Ceylon Style Studio වෙතින්.\n\nඔබ "{campaign_title}" පාඨමාලාව සඳහා සම්බන්ධ වීමට කැමැත්ත පළකර තිබුණි (Ref: {ref_id}). වැඩිදුර විස්තර සඳහා අප හා සම්බන්ධ වන්න.');
+                setTemplateDescription('');
+              }}
+              className="px-4 py-2 bg-[#25D366] text-black text-xs font-bold uppercase rounded hover:bg-[#20ba59] flex items-center gap-1.5 cursor-pointer shadow-lg"
+            >
+              <Plus className="w-4 h-4 fill-black" />
+              <span>Add New Template</span>
+            </button>
+          )}
+
+          {activeTab === 'banks' && (
+            <button
+              onClick={() => {
+                setEditingBankAccount(null);
+                setIsAddingBankAccount(true);
+                setBankNameInput('');
+                setAccountNumberInput('');
+                setAccountNameInput('Ceylon Style Studio (Pvt) Ltd');
+                setBranchInput('');
+                setSwiftCodeInput('');
+                setCurrencyInput('LKR');
+                setBankNotesInput('Please transfer registration fee / deposit and WhatsApp the bank slip or screenshot.');
+                setIsDefaultBankInput(bankAccounts.length === 0);
+                setIsActiveBankInput(true);
+              }}
+              className="px-4 py-2 bg-amber-400 text-black text-xs font-bold uppercase rounded hover:bg-amber-300 flex items-center gap-1.5 cursor-pointer shadow-lg"
+            >
+              <Plus className="w-4 h-4 fill-black" />
+              <span>Add Bank Account</span>
             </button>
           )}
         </div>
@@ -1281,7 +1843,7 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
                                 <ExternalLink className="w-2.5 h-2.5 opacity-60 text-emerald-400 group-hover:opacity-100" />
                               </a>
 
-                              <div className="flex items-center gap-1.5 pt-0.5">
+                              <div className="flex items-center gap-1 flex-wrap pt-0.5">
                                 {/* 1-Click WhatsApp Direct Chat */}
                                 <a
                                   href={getDirectWhatsAppUrl(lead)}
@@ -1292,36 +1854,67 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
                                   title="Open WhatsApp chat directly with prefilled admission message"
                                 >
                                   <MessageSquare className="w-3 h-3 fill-black" />
-                                  <span>Chat Now</span>
+                                  <span>Chat</span>
                                 </a>
 
-                                {/* 1-Click WhatsApp Direct Message Template Modal */}
+                                {/* 1-Click Template: No Answer */}
+                                <a
+                                  href={getDirectWhatsAppUrl(lead, 'tpl-no-answer')}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={() => showToast(`Opening "No Answer" WhatsApp chat for ${lead.fullName}...`)}
+                                  className="px-1.5 py-0.5 rounded bg-red-950/70 border border-red-500/50 text-red-300 hover:bg-red-900 transition-all flex items-center gap-0.5 text-[9px] font-mono cursor-pointer"
+                                  title="1-Click WhatsApp: Send Call No Answer template directly to student"
+                                >
+                                  <span>📵 No Answer</span>
+                                </a>
+
+                                {/* 1-Click Template: Payment */}
                                 <button
                                   type="button"
                                   onClick={() => {
                                     setWhatsappModalLead(lead);
-                                    setWhatsappTemplateType(
-                                      lead.callStatus === 'CALL_NO_ANSWER'
-                                        ? 'no_answer'
-                                        : lead.callStatus === 'PAYMENT_PENDING'
-                                        ? 'payment'
-                                        : 'welcome'
-                                    );
-                                    setCustomWhatsappMessage(
-                                      getWhatsAppMessageText(
-                                        lead,
-                                        lead.callStatus === 'CALL_NO_ANSWER'
-                                          ? 'no_answer'
-                                          : lead.callStatus === 'PAYMENT_PENDING'
-                                          ? 'payment'
-                                          : 'welcome'
-                                      )
-                                    );
+                                    setSelectedTemplateId('tpl-payment');
+                                    const defBank =
+                                      bankAccounts.find((b) => b.isDefault && b.isActive) ||
+                                      bankAccounts.find((b) => b.isActive) ||
+                                      bankAccounts[0];
+                                    if (defBank) {
+                                      setSelectedBankAccountId(defBank.id);
+                                    }
+                                    setCustomWhatsappMessage(getWhatsAppMessageText(lead, 'tpl-payment', defBank));
                                   }}
-                                  className="px-2 py-0.5 rounded bg-[#140b0e] border border-white/20 text-[#d5cfc4] hover:text-white hover:border-[#dfb56c] transition-all flex items-center gap-1 text-[10px] font-mono cursor-pointer"
-                                  title="Choose message template or edit text before sending"
+                                  className="px-1.5 py-0.5 rounded bg-amber-950/70 border border-amber-500/50 text-amber-300 hover:bg-amber-900 transition-all flex items-center gap-0.5 text-[9px] font-mono cursor-pointer"
+                                  title="Open Bank Payment template with academy account details"
                                 >
-                                  <span>Templates</span>
+                                  <span>💳 Bank</span>
+                                </button>
+
+                                {/* Template Picker & Message Customizer Modal */}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setWhatsappModalLead(lead);
+                                    const initialTpl =
+                                      lead.callStatus === 'CALL_NO_ANSWER'
+                                        ? 'tpl-no-answer'
+                                        : lead.callStatus === 'PAYMENT_PENDING'
+                                        ? 'tpl-payment'
+                                        : 'tpl-welcome';
+                                    setSelectedTemplateId(initialTpl);
+                                    const defBank =
+                                      bankAccounts.find((b) => b.isDefault && b.isActive) ||
+                                      bankAccounts.find((b) => b.isActive) ||
+                                      bankAccounts[0];
+                                    if (defBank) {
+                                      setSelectedBankAccountId(defBank.id);
+                                    }
+                                    setCustomWhatsappMessage(getWhatsAppMessageText(lead, initialTpl, defBank));
+                                  }}
+                                  className="px-1.5 py-0.5 rounded bg-[#140b0e] border border-white/20 text-[#d5cfc4] hover:text-white hover:border-[#dfb56c] transition-all flex items-center gap-1 text-[9px] font-mono cursor-pointer"
+                                  title="Choose any saved template, customize text & send"
+                                >
+                                  <span>Templates...</span>
                                 </button>
 
                                 {/* Direct Call Button */}
@@ -1502,6 +2095,884 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
               </div>
             </div>
           )}
+        </div>
+      )}
+
+          {/* ========================================================= */}
+          {/* TAB 3: WHATSAPP MESSAGE TEMPLATES MANAGER (BACKEND)       */}
+          {/* ========================================================= */}
+          {activeTab === 'templates' && (
+            <div className="space-y-6">
+              {/* Header Banner */}
+              <div className="p-5 rounded-xl bg-gradient-to-r from-[#0d1f14] via-[#09150d] to-[#0c090a] border border-[#25D366]/40 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="px-2.5 py-0.5 rounded-full bg-[#25D366]/20 border border-[#25D366]/60 text-[#25D366] text-[10px] font-mono font-bold tracking-widest uppercase">
+                      Backend CRM Messaging Engine
+                    </span>
+                    <span className="text-[10px] font-mono text-[#a89f91]">
+                      {whatsappTemplates.length} Active Templates Saved
+                    </span>
+                  </div>
+                  <h3 className="text-xl sm:text-2xl font-editorial font-bold text-white flex items-center gap-2">
+                    <MessageSquare className="w-5 h-5 text-[#25D366]" />
+                    <span>WhatsApp Message Templates Customizer</span>
+                  </h3>
+                  <p className="text-xs text-[#a89f91] mt-1 font-sinhala leading-relaxed max-w-3xl">
+                    ශිෂ්‍යයින්ට ක්ෂණිකව Direct WhatsApp පණිවිඩ යැවීමට අවශ්‍ය Templates මෙතැනින් නිර්මාණය, සංස්කරණය සහ Firebase Backend හි ස්ථිරව සුරැකිය හැක. View Leads CRM හි එක් එක් ශිෂ්‍යයාගේ අංකය මත ක්ලික් කළ විට (<span className="font-mono text-[#25D366]">wa.me/&lt;number&gt;?text=...</span>) මෙම පණිවිඩ කෙලින්ම සූදානම්ව විවෘත වේ.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={handleResetTemplates}
+                    className="px-3.5 py-2 rounded bg-black/60 border border-white/20 hover:border-white/40 text-zinc-300 text-xs font-mono flex items-center gap-1.5 cursor-pointer transition-all"
+                    title="Restore default system templates"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5 text-zinc-400" />
+                    <span>Reset Defaults</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingTemplate(null);
+                      setIsAddingTemplate(true);
+                      setTemplateName('');
+                      setTemplateNameSinhala('');
+                      setTemplateBadge('Custom');
+                      setTemplateCategory('lead_crm');
+                      setTemplateMessage(
+                        'හෙලෝ {student_name}, Ceylon Style Studio වෙතින්.\n\nඔබ "{campaign_title}" පාඨමාලාව සඳහා ලියාපදිංචි වීමට කැමැත්ත පළකර තිබුණි (Ref: {ref_id}). ඔබගේ ආසනය වෙන්කරවා ගැනීමට අදාළ වැඩිදුර තොරතුරු ලබාගැනීමට කරුණාකර අප හා සම්බන්ධ වන්න.'
+                      );
+                      setTemplateDescription('New custom lead follow-up message');
+                    }}
+                    className="px-4 py-2 rounded bg-[#25D366] hover:bg-[#20ba59] text-black text-xs font-bold uppercase flex items-center gap-1.5 cursor-pointer shadow-lg transition-all"
+                  >
+                    <Plus className="w-4 h-4 fill-black" />
+                    <span>Create New Template</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Add / Edit Template Form */}
+              {(isAddingTemplate || editingTemplate) && (
+                <div className="p-5 sm:p-6 rounded-xl bg-[#0f0a0c] border-2 border-[#25D366] shadow-2xl space-y-5 animate-in fade-in duration-200">
+                  <div className="flex items-center justify-between pb-3 border-b border-white/10">
+                    <div className="flex items-center gap-2">
+                      <div className="p-2 rounded bg-[#25D366]/20 border border-[#25D366] text-[#25D366]">
+                        <Edit className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-mono font-bold uppercase text-white">
+                          {editingTemplate ? `Edit Template: "${editingTemplate.name}"` : 'Create New WhatsApp Template'}
+                        </h4>
+                        <span className="text-[11px] text-[#a89f91] font-sinhala">
+                          පණිවිඩ ආකෘතිය සකස් කර Firebase Database හි ස්ථිරව Save කරන්න
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingTemplate(null);
+                        setIsAddingTemplate(false);
+                      }}
+                      className="p-1 rounded-full hover:bg-white/10 text-white cursor-pointer"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Template Name (English) */}
+                    <div>
+                      <label className="block text-xs font-mono uppercase text-[#dfb56c] mb-1 font-bold">
+                        Template Name (English) *
+                      </label>
+                      <input
+                        type="text"
+                        value={templateName}
+                        onChange={(e) => setTemplateName(e.target.value)}
+                        placeholder="e.g. Call No Answer Follow-up"
+                        className="w-full px-3 py-2 rounded bg-black border border-white/20 text-xs text-white focus:border-[#25D366] outline-none"
+                      />
+                    </div>
+
+                    {/* Template Name (Sinhala) */}
+                    <div>
+                      <label className="block text-xs font-mono uppercase text-[#dfb56c] mb-1 font-bold">
+                        Template Name (Sinhala)
+                      </label>
+                      <input
+                        type="text"
+                        value={templateNameSinhala}
+                        onChange={(e) => setTemplateNameSinhala(e.target.value)}
+                        placeholder="e.g. ඇමතුමට පිළිතුරු නොදුන් පසු"
+                        className="w-full px-3 py-2 rounded bg-black border border-white/20 text-xs text-white focus:border-[#25D366] outline-none font-sinhala"
+                      />
+                    </div>
+
+                    {/* Badge Label */}
+                    <div>
+                      <label className="block text-xs font-mono uppercase text-[#dfb56c] mb-1 font-bold">
+                        Badge / Icon Label
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={templateBadge}
+                          onChange={(e) => setTemplateBadge(e.target.value)}
+                          placeholder="e.g. 📵 No Answer, 💳 Bank Info, ✨ Welcome"
+                          className="w-full px-3 py-2 rounded bg-black border border-white/20 text-xs text-white focus:border-[#25D366] outline-none"
+                        />
+                        <div className="flex gap-1 shrink-0">
+                          {['📵 No Answer', '💳 Bank', '✨ Welcome', '🚨 Urgency'].map((chip) => (
+                            <button
+                              key={chip}
+                              type="button"
+                              onClick={() => setTemplateBadge(chip)}
+                              className="px-2 py-1 rounded bg-[#1c1013] border border-white/10 text-[10px] text-[#dfb56c] hover:border-[#dfb56c] cursor-pointer"
+                            >
+                              {chip.split(' ')[0]}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Category */}
+                    <div>
+                      <label className="block text-xs font-mono uppercase text-[#dfb56c] mb-1 font-bold">
+                        Category / වර්ගය
+                      </label>
+                      <select
+                        value={templateCategory}
+                        onChange={(e) => setTemplateCategory(e.target.value as any)}
+                        className="w-full px-3 py-2 rounded bg-black border border-white/20 text-xs text-white focus:border-[#25D366] outline-none cursor-pointer"
+                      >
+                        <option value="lead_crm">Lead CRM &amp; Phone Call Follow-up</option>
+                        <option value="payment">Bank Account &amp; Fee Payment Details</option>
+                        <option value="followup">Seat Confirmation &amp; Class Schedule Reminders</option>
+                        <option value="general">General Welcome &amp; Atelier Inquiries</option>
+                      </select>
+                    </div>
+
+                    {/* Internal Description */}
+                    <div className="md:col-span-2">
+                      <label className="block text-xs font-mono uppercase text-[#dfb56c] mb-1 font-bold">
+                        Internal Staff Usage Description / උපදෙස්
+                      </label>
+                      <input
+                        type="text"
+                        value={templateDescription}
+                        onChange={(e) => setTemplateDescription(e.target.value)}
+                        placeholder="e.g. Use this immediately after calling when student doesn't answer the phone"
+                        className="w-full px-3 py-2 rounded bg-black border border-white/20 text-xs text-white focus:border-[#25D366] outline-none"
+                      />
+                    </div>
+
+                    {/* Message Body with Dynamic Tags */}
+                    <div className="md:col-span-2">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="text-xs font-mono uppercase text-[#dfb56c] font-bold">
+                          WhatsApp Message Body / පණිවිඩයේ පෙළ *
+                        </label>
+                        <span className="text-[10px] font-mono text-[#a89f91]">
+                          {templateMessage.length} characters
+                        </span>
+                      </div>
+
+                      {/* Tag insertion chips */}
+                      <div className="mb-2 p-2 rounded bg-black/60 border border-white/10 flex flex-wrap items-center gap-1.5">
+                        <span className="text-[10px] font-mono text-[#a89f91] mr-1">Insert Dynamic Tag:</span>
+                        {[
+                          { tag: '{student_name}', label: 'Student Name / නම' },
+                          { tag: '{campaign_title}', label: 'Course Title / පාඨමාලා නම' },
+                          { tag: '{ref_id}', label: 'Ref ID / ලියාපදිංචි අංකය' },
+                          { tag: '{fee}', label: 'Fee / පාඨමාලා ගාස්තුව' },
+                          { tag: '{location}', label: 'Location / ස්ථානය' },
+                          { tag: '{mode}', label: 'Study Mode / ඉගෙනුම් ක්‍රමය' },
+                          { tag: '{phone}', label: 'WhatsApp Phone' },
+                        ].map((item) => (
+                          <button
+                            key={item.tag}
+                            type="button"
+                            onClick={() => setTemplateMessage((prev) => prev + ' ' + item.tag)}
+                            className="px-2 py-0.5 rounded bg-[#1c1013] hover:bg-[#281318] border border-[#dfb56c]/30 text-[#f7e2a9] text-[10px] font-mono cursor-pointer transition-all"
+                            title={`Insert ${item.tag} dynamic tag`}
+                          >
+                            + {item.label}
+                          </button>
+                        ))}
+                      </div>
+
+                      <textarea
+                        rows={7}
+                        value={templateMessage}
+                        onChange={(e) => setTemplateMessage(e.target.value)}
+                        placeholder="Type message text here. Use dynamic tags like {student_name}, {campaign_title}, {ref_id}, {fee}..."
+                        className="w-full px-3.5 py-2.5 bg-black border border-white/20 rounded-lg text-xs text-white focus:border-[#25D366] outline-none leading-relaxed font-sans"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Real-time sample preview */}
+                  <div className="p-3.5 rounded-lg bg-[#0d1a10] border border-[#25D366]/30">
+                    <span className="text-[10px] font-mono uppercase tracking-widest text-[#25D366] font-bold block mb-1">
+                      Live Sample Preview (with mock student data):
+                    </span>
+                    <p className="text-xs text-zinc-200 whitespace-pre-line font-sans leading-relaxed">
+                      {formatTemplateForLead(templateMessage, {
+                        id: 'REF-7890',
+                        campaignId: 'sample-camp',
+                        campaignSlug: 'fb-masterclass',
+                        campaignTitle: 'Fashion Design & Pattern Making Masterclass',
+                        fullName: 'Nimali Senanayake',
+                        whatsappNumber: '0771234567',
+                        preferredLocation: 'Kurunegala Atelier',
+                        studyMode: 'PHYSICAL',
+                        callStatus: 'CALL_NO_ANSWER',
+                        status: 'NEW',
+                        createdAt: new Date().toISOString(),
+                      } as CampaignLead)}
+                    </p>
+                  </div>
+
+                  {/* Action buttons */}
+                  <div className="flex items-center justify-end gap-3 pt-3 border-t border-white/10">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingTemplate(null);
+                        setIsAddingTemplate(false);
+                      }}
+                      className="px-4 py-2 rounded bg-zinc-900 hover:bg-zinc-800 text-zinc-300 text-xs font-mono cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleSaveTemplate}
+                      className="px-6 py-2 rounded bg-[#25D366] hover:bg-[#20ba59] text-black text-xs font-bold uppercase flex items-center gap-2 cursor-pointer shadow-lg transition-all"
+                    >
+                      <Save className="w-4 h-4 fill-black" />
+                      <span>{editingTemplate ? 'Update & Save to Backend' : 'Save New Template to Backend'}</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Saved Templates Grid */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {whatsappTemplates.map((tpl, idx) => {
+                  return (
+                    <div
+                      key={tpl.id}
+                      className="p-5 rounded-xl bg-[#0c090a] border border-white/15 hover:border-[#25D366]/60 transition-all flex flex-col justify-between shadow-lg group"
+                    >
+                      <div>
+                        {/* Top Meta Row */}
+                        <div className="flex items-center justify-between gap-2 mb-2.5">
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
+                                tpl.badgeBg || 'bg-emerald-950/80'
+                              } ${tpl.badgeText || 'text-emerald-300'} border ${
+                                tpl.badgeBorder || 'border-emerald-500/40'
+                              }`}
+                            >
+                              {tpl.badge || tpl.name}
+                            </span>
+                            <span className="text-[10px] font-mono uppercase tracking-wider text-[#a89f91] bg-black/40 px-2 py-0.5 rounded border border-white/5">
+                              {tpl.category}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-1.5">
+                            {tpl.isDefault ? (
+                              <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-zinc-900 text-zinc-400 border border-white/10">
+                                System Default
+                              </span>
+                            ) : (
+                              <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-amber-950/60 text-amber-300 border border-amber-500/30">
+                                Custom
+                              </span>
+                            )}
+                            <span className="text-[10px] font-mono text-zinc-500">#{idx + 1}</span>
+                          </div>
+                        </div>
+
+                        {/* Title */}
+                        <h4 className="text-base font-editorial font-bold text-white group-hover:text-[#25D366] transition-colors">
+                          {tpl.name}
+                        </h4>
+                        {tpl.nameSinhala && (
+                          <h5 className="text-xs font-sinhala text-[#d5cfc4] mt-0.5">{tpl.nameSinhala}</h5>
+                        )}
+
+                        {tpl.description && (
+                          <p className="text-[11px] text-[#a89f91] mt-1.5 italic font-sans">{tpl.description}</p>
+                        )}
+
+                        {/* Message Preview Box */}
+                        <div className="mt-3 p-3 rounded-lg bg-black/70 border border-white/10 max-h-40 overflow-y-auto">
+                          <p className="text-xs text-zinc-300 whitespace-pre-line font-sans leading-relaxed">
+                            {tpl.message}
+                          </p>
+                        </div>
+
+                        {/* Detected Dynamic Tags */}
+                        <div className="mt-2.5 flex flex-wrap items-center gap-1 text-[9px] font-mono text-[#a89f91]">
+                          <span className="text-zinc-500">Dynamic tags:</span>
+                          {(tpl.message.match(/\{[a-zA-Z0-9_]+\}/g) || []).map((tag, tIdx) => (
+                            <span
+                              key={tIdx}
+                              className="px-1.5 py-0.2 rounded bg-[#1c1013] text-[#dfb56c] border border-[#dfb56c]/30"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Card Bottom Actions */}
+                      <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleStartEditTemplate(tpl)}
+                            className="px-3 py-1.5 rounded bg-[#1f1418] hover:bg-[#321721] border border-[#dfb56c]/40 text-[#f7e2a9] text-xs font-mono flex items-center gap-1 cursor-pointer transition-all"
+                            title="Edit template content"
+                          >
+                            <Edit className="w-3.5 h-3.5 text-[#dfb56c]" />
+                            <span>Edit</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (navigator.clipboard) {
+                                navigator.clipboard.writeText(tpl.message);
+                                showToast(`Template "${tpl.name}" copied to clipboard!`);
+                              }
+                            }}
+                            className="px-2.5 py-1.5 rounded bg-black/60 hover:bg-black border border-white/10 text-zinc-300 text-xs font-mono flex items-center gap-1 cursor-pointer"
+                            title="Copy template message text"
+                          >
+                            <Copy className="w-3 h-3" />
+                            <span className="hidden sm:inline">Copy</span>
+                          </button>
+                        </div>
+
+                        <div className="flex items-center gap-1.5">
+                          {/* Test Link */}
+                          <a
+                            href={`https://wa.me/?text=${encodeURIComponent(tpl.message)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-3 py-1.5 rounded bg-[#0f2416] hover:bg-[#163822] border border-[#25D366]/40 text-[#25D366] text-xs font-mono flex items-center gap-1 cursor-pointer transition-all"
+                            title="Preview message in WhatsApp"
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                            <span>Preview</span>
+                          </a>
+
+                          {/* Delete */}
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteTemplate(tpl.id, tpl.name)}
+                            className="p-1.5 rounded hover:bg-red-950/60 text-red-400 hover:text-red-300 cursor-pointer"
+                            title="Delete this template"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Informational Guidance Box */}
+              <div className="p-4 rounded-xl bg-[#0c090a] border border-[#dfb56c]/30 flex items-start gap-3 text-xs font-sans">
+                <span className="text-xl shrink-0">💡</span>
+                <div className="space-y-1 text-[#d5cfc4]">
+                  <strong className="text-[#dfb56c] block font-mono uppercase tracking-wider text-[11px]">
+                    Direct WhatsApp Messaging Architecture
+                  </strong>
+                  <p className="leading-relaxed font-sinhala">
+                    ඔබ මෙතැනින් සාදන හෝ සංස්කරණය කරන සියලුම WhatsApp Templates ස්වයංක්‍රීයව Database හි සුරැකෙන අතර, View Leads CRM හි එක් එක් ශිෂ්‍යයාගේ WhatsApp Button එක මත ක්ලික් කළ විට ක්ෂණිකව භාවිතා කළ හැක. ශිෂ්‍යයාගේ නම, දුරකථන අංකය, පාඨමාලා ගාස්තුව, ලියාපදිංචි Reference අංකය ආදිය ස්වයංක්‍රීයව ආදේශ වී <span className="font-mono text-[#25D366]">wa.me/&lt;number&gt;?text=...</span> හරහා එම ශිෂ්‍යයාගේ WhatsApp Chat එකටම කෙලින්ම ගමන් කරනු ඇත.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================= */}
+          {/* TAB 4: OFFICIAL BANK ACCOUNTS MANAGER (BACKEND & CRM)     */}
+          {/* ========================================================= */}
+          {activeTab === 'banks' && (
+            <div className="space-y-6">
+              {/* Header Banner */}
+              <div className="p-5 rounded-xl bg-gradient-to-r from-[#1f1708] via-[#161005] to-[#0c090a] border border-amber-500/40 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="px-2.5 py-0.5 rounded-full bg-amber-400/20 border border-amber-400/60 text-amber-300 text-[10px] font-mono font-bold tracking-widest uppercase flex items-center gap-1">
+                      <CreditCard className="w-3 h-3" />
+                      <span>Financial CRM &amp; Bank Accounts Engine</span>
+                    </span>
+                    <span className="text-[10px] font-mono text-[#a89f91]">
+                      {bankAccounts.length} Official Accounts Configured
+                    </span>
+                  </div>
+                  <h3 className="text-xl sm:text-2xl font-editorial font-bold text-white flex items-center gap-2">
+                    <Building className="w-5 h-5 text-amber-400" />
+                    <span>Official Bank Accounts &amp; Payment Manager</span>
+                  </h3>
+                  <p className="text-xs text-[#a89f91] mt-1 font-sinhala leading-relaxed max-w-3xl">
+                    Ceylon Style Studio ආයතනික බැංකු ගිණුම් මෙතැනින් එකතු කිරීම, සංස්කරණය සහ Default ගිණුම තේරීම සිදුකළ හැක. මෙම ගිණුම් සජීවීව Firebase Firestore හි සුරැකෙන අතර, View Leads CRM හිදී ශිෂ්‍යයාට ගෙවීම් පණිවිඩ යැවීමේදී තෝරාගත හැක.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={handleResetBankAccounts}
+                    className="px-3.5 py-2 rounded bg-black/60 border border-white/20 hover:border-white/40 text-zinc-300 text-xs font-mono flex items-center gap-1.5 cursor-pointer transition-all"
+                    title="Restore default system bank accounts"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5 text-zinc-400" />
+                    <span>Reset Defaults</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingBankAccount(null);
+                      setIsAddingBankAccount(true);
+                      setBankNameInput('');
+                      setAccountNumberInput('');
+                      setAccountNameInput('Ceylon Style Studio (Pvt) Ltd');
+                      setBranchInput('');
+                      setSwiftCodeInput('');
+                      setCurrencyInput('LKR');
+                      setBankNotesInput('Please deposit the course fee and send the deposit slip or screenshot to this WhatsApp number.');
+                      setIsDefaultBankInput(bankAccounts.length === 0);
+                      setIsActiveBankInput(true);
+                    }}
+                    className="px-4 py-2 rounded bg-amber-400 hover:bg-amber-300 text-black text-xs font-bold uppercase flex items-center gap-1.5 cursor-pointer shadow-lg transition-all"
+                  >
+                    <Plus className="w-4 h-4 fill-black" />
+                    <span>Add New Bank Account</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Add / Edit Bank Account Form */}
+              {(isAddingBankAccount || editingBankAccount) && (
+                <div className="p-5 sm:p-6 rounded-xl bg-[#0f0a0c] border-2 border-amber-400 shadow-2xl space-y-5 animate-in fade-in duration-200">
+                  <div className="flex items-center justify-between pb-3 border-b border-white/10">
+                    <div className="flex items-center gap-2">
+                      <div className="p-2 rounded bg-amber-400/20 border border-amber-400 text-amber-300">
+                        <Building className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-mono font-bold uppercase text-white">
+                          {editingBankAccount ? `Edit Bank Account: "${editingBankAccount.bankName}"` : 'Add New Official Bank Account'}
+                        </h4>
+                        <span className="text-[11px] text-[#a89f91] font-sinhala">
+                          බැංකු ගිණුම් විස්තර ඇතුළත් කර Firebase Database හි ස්ථිරව සුරකින්න
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingBankAccount(null);
+                        setIsAddingBankAccount(false);
+                      }}
+                      className="p-1 rounded-full hover:bg-white/10 text-white cursor-pointer"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {/* Quick Bank Presets */}
+                  <div>
+                    <label className="block text-[11px] font-mono uppercase text-[#dfb56c] mb-1.5 font-bold">
+                      Quick Bank Presets / ජනප්‍රිය බැංකු තෝරන්න:
+                    </label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {[
+                        'Commercial Bank of Ceylon',
+                        'Sampath Bank PLC',
+                        'Bank of Ceylon (BOC)',
+                        'Hatton National Bank (HNB)',
+                        "People's Bank",
+                        'Seylan Bank PLC',
+                        'Nations Trust Bank (NTB)',
+                        'DFCC Bank',
+                      ].map((preset) => (
+                        <button
+                          key={preset}
+                          type="button"
+                          onClick={() => setBankNameInput(preset)}
+                          className={`px-2.5 py-1 rounded text-xs font-mono border transition-all cursor-pointer ${
+                            bankNameInput === preset
+                              ? 'bg-amber-400 text-black border-amber-300 font-bold'
+                              : 'bg-[#181114] border-white/10 text-[#d5cfc4] hover:border-amber-400/50 hover:text-white'
+                          }`}
+                        >
+                          {preset}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Bank Name */}
+                    <div>
+                      <label className="block text-xs font-mono uppercase text-[#dfb56c] mb-1 font-bold">
+                        Bank Name / බැංකුවේ නම *
+                      </label>
+                      <input
+                        type="text"
+                        value={bankNameInput}
+                        onChange={(e) => setBankNameInput(e.target.value)}
+                        placeholder="e.g. Commercial Bank of Ceylon"
+                        className="w-full px-3 py-2 rounded bg-black border border-white/20 text-xs text-white focus:border-amber-400 outline-none"
+                      />
+                    </div>
+
+                    {/* Account Number */}
+                    <div>
+                      <label className="block text-xs font-mono uppercase text-[#dfb56c] mb-1 font-bold">
+                        Account Number / ගිණුම් අංකය *
+                      </label>
+                      <input
+                        type="text"
+                        value={accountNumberInput}
+                        onChange={(e) => setAccountNumberInput(e.target.value)}
+                        placeholder="e.g. 1000548923 or 004510009822"
+                        className="w-full px-3 py-2 rounded bg-black border border-white/20 text-xs text-amber-300 font-mono font-bold focus:border-amber-400 outline-none"
+                      />
+                    </div>
+
+                    {/* Account Holder / Company Name */}
+                    <div>
+                      <label className="block text-xs font-mono uppercase text-[#dfb56c] mb-1 font-bold">
+                        Account Holder / Company Name *
+                      </label>
+                      <input
+                        type="text"
+                        value={accountNameInput}
+                        onChange={(e) => setAccountNameInput(e.target.value)}
+                        placeholder="e.g. Ceylon Style Studio (Pvt) Ltd"
+                        className="w-full px-3 py-2 rounded bg-black border border-white/20 text-xs text-white focus:border-amber-400 outline-none"
+                      />
+                    </div>
+
+                    {/* Branch */}
+                    <div>
+                      <label className="block text-xs font-mono uppercase text-[#dfb56c] mb-1 font-bold">
+                        Branch / ශාඛාව *
+                      </label>
+                      <input
+                        type="text"
+                        value={branchInput}
+                        onChange={(e) => setBranchInput(e.target.value)}
+                        placeholder="e.g. Kurunegala Super Grade, Kegalle, Colombo"
+                        className="w-full px-3 py-2 rounded bg-black border border-white/20 text-xs text-white focus:border-amber-400 outline-none"
+                      />
+                    </div>
+
+                    {/* SWIFT / Branch Code & Currency */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-xs font-mono uppercase text-[#dfb56c] mb-1 font-bold">
+                          SWIFT / Branch Code
+                        </label>
+                        <input
+                          type="text"
+                          value={swiftCodeInput}
+                          onChange={(e) => setSwiftCodeInput(e.target.value)}
+                          placeholder="e.g. CCEYLKAX"
+                          className="w-full px-3 py-2 rounded bg-black border border-white/20 text-xs text-white font-mono focus:border-amber-400 outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-mono uppercase text-[#dfb56c] mb-1 font-bold">
+                          Currency
+                        </label>
+                        <select
+                          value={currencyInput}
+                          onChange={(e) => setCurrencyInput(e.target.value)}
+                          className="w-full px-3 py-2 rounded bg-black border border-white/20 text-xs text-white font-mono focus:border-amber-400 outline-none cursor-pointer"
+                        >
+                          <option value="LKR">LKR (රුපියල්)</option>
+                          <option value="USD">USD ($)</option>
+                          <option value="EUR">EUR (€)</option>
+                          <option value="GBP">GBP (£)</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Checkboxes: Default & Active */}
+                    <div className="flex items-center gap-6 pt-5">
+                      <label className="flex items-center gap-2 cursor-pointer text-xs font-mono text-zinc-200">
+                        <input
+                          type="checkbox"
+                          checked={isDefaultBankInput}
+                          onChange={(e) => setIsDefaultBankInput(e.target.checked)}
+                          className="w-4 h-4 accent-amber-400 rounded cursor-pointer"
+                        />
+                        <span className="font-bold flex items-center gap-1 text-amber-300">
+                          <Star className="w-3.5 h-3.5 fill-amber-300" />
+                          Set as Primary Default Account
+                        </span>
+                      </label>
+
+                      <label className="flex items-center gap-2 cursor-pointer text-xs font-mono text-zinc-200">
+                        <input
+                          type="checkbox"
+                          checked={isActiveBankInput}
+                          onChange={(e) => setIsActiveBankInput(e.target.checked)}
+                          className="w-4 h-4 accent-emerald-500 rounded cursor-pointer"
+                        />
+                        <span>Active for CRM</span>
+                      </label>
+                    </div>
+
+                    {/* Instructions / Notes for Students */}
+                    <div className="md:col-span-2">
+                      <label className="block text-xs font-mono uppercase text-[#dfb56c] mb-1 font-bold">
+                        Special Instructions / Student Payment Notes (උපදෙස්)
+                      </label>
+                      <input
+                        type="text"
+                        value={bankNotesInput}
+                        onChange={(e) => setBankNotesInput(e.target.value)}
+                        placeholder="e.g. මුදල් තැන්පත් කිරීමෙන් පසු රිසිට්පත (Bank Slip / Screenshot) මෙම WhatsApp අංකයට යොමුකරන්න."
+                        className="w-full px-3 py-2 rounded bg-black border border-white/20 text-xs text-white font-sinhala focus:border-amber-400 outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Live Template Format Preview */}
+                  <div className="p-3.5 rounded-lg bg-[#140f06] border border-amber-400/40">
+                    <span className="text-[10px] font-mono uppercase tracking-widest text-amber-400 font-bold block mb-1">
+                      Live Preview (How &#123;bank_details&#125; tag will appear in WhatsApp messages):
+                    </span>
+                    <pre className="text-xs text-zinc-200 font-mono whitespace-pre-wrap leading-relaxed">
+{`• Bank: ${bankNameInput || 'Commercial Bank of Ceylon'}
+• Account Name: ${accountNameInput || 'Ceylon Style Studio (Pvt) Ltd'}
+• Account Number: ${accountNumberInput || '1000548923'}
+• Branch: ${branchInput || 'Kurunegala Super Grade'}${
+  swiftCodeInput ? `\n• SWIFT / Branch Code: ${swiftCodeInput}` : ''
+}${bankNotesInput ? `\n• උපදෙස්: ${bankNotesInput}` : ''}`}
+                    </pre>
+                  </div>
+
+                  {/* Form Actions */}
+                  <div className="flex items-center justify-end gap-3 pt-3 border-t border-white/10">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingBankAccount(null);
+                        setIsAddingBankAccount(false);
+                      }}
+                      className="px-4 py-2 rounded bg-zinc-900 hover:bg-zinc-800 text-zinc-300 text-xs font-mono cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleSaveBankAccount}
+                      className="px-6 py-2 rounded bg-amber-400 hover:bg-amber-300 text-black text-xs font-bold uppercase flex items-center gap-2 cursor-pointer shadow-lg transition-all"
+                    >
+                      <Save className="w-4 h-4 fill-black" />
+                      <span>{editingBankAccount ? 'Update & Save Bank Account' : 'Save Bank Account to Backend'}</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Bank Accounts Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {bankAccounts.map((acc, idx) => {
+                  return (
+                    <div
+                      key={acc.id}
+                      className={`p-5 rounded-xl border transition-all flex flex-col justify-between shadow-lg group ${
+                        acc.isDefault
+                          ? 'bg-gradient-to-br from-[#191104] to-[#0c090a] border-amber-400/80 ring-1 ring-amber-400/40'
+                          : 'bg-[#0c090a] border-white/15 hover:border-amber-400/50'
+                      }`}
+                    >
+                      <div>
+                        {/* Top Badge Row */}
+                        <div className="flex items-center justify-between gap-2 mb-2.5">
+                          <div className="flex items-center gap-2">
+                            {acc.isDefault ? (
+                              <span className="px-2.5 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-400 text-black flex items-center gap-1 shadow">
+                                <Star className="w-3 h-3 fill-black" />
+                                <span>PRIMARY DEFAULT</span>
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded text-[10px] font-mono text-[#a89f91] bg-black/50 border border-white/10">
+                                Alternate Account
+                              </span>
+                            )}
+
+                            {acc.isActive ? (
+                              <span className="px-2 py-0.5 rounded text-[10px] font-mono text-emerald-300 bg-emerald-950/70 border border-emerald-500/40">
+                                Active in CRM
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded text-[10px] font-mono text-zinc-500 bg-zinc-900 border border-white/10">
+                                Inactive
+                              </span>
+                            )}
+                          </div>
+
+                          <span className="text-[10px] font-mono text-zinc-500">#{idx + 1}</span>
+                        </div>
+
+                        {/* Bank Name & Branch */}
+                        <div className="flex items-start justify-between gap-2 mt-1">
+                          <div>
+                            <h4 className="text-base font-editorial font-bold text-white group-hover:text-amber-300 transition-colors">
+                              {acc.bankName}
+                            </h4>
+                            <p className="text-xs text-[#a89f91] font-mono flex items-center gap-1 mt-0.5">
+                              <MapPin className="w-3 h-3 text-amber-400" />
+                              <span>{acc.branch} Branch</span>
+                              {acc.swiftCode && <span className="text-zinc-500">• {acc.swiftCode}</span>}
+                            </p>
+                          </div>
+                          <span className="px-2 py-0.5 rounded bg-black/60 border border-white/10 text-xs font-mono font-bold text-amber-300">
+                            {acc.currency || 'LKR'}
+                          </span>
+                        </div>
+
+                        {/* Account Number Box with 1-click Copy */}
+                        <div className="mt-3 p-3 rounded-lg bg-black/80 border border-white/15 flex items-center justify-between gap-3">
+                          <div>
+                            <span className="text-[10px] font-mono uppercase text-[#a89f91] block">Account Number</span>
+                            <strong className="text-base sm:text-lg font-mono font-bold text-white tracking-wider text-amber-300">
+                              {acc.accountNumber}
+                            </strong>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (navigator.clipboard) {
+                                navigator.clipboard.writeText(acc.accountNumber);
+                                showToast(`Account number ${acc.accountNumber} copied!`);
+                              }
+                            }}
+                            className="px-2.5 py-1.5 rounded bg-amber-400/20 hover:bg-amber-400 hover:text-black border border-amber-400/40 text-amber-300 text-xs font-mono flex items-center gap-1 cursor-pointer transition-all shrink-0"
+                            title="Copy Account Number"
+                          >
+                            <Copy className="w-3 h-3" />
+                            <span>Copy</span>
+                          </button>
+                        </div>
+
+                        {/* Account Name */}
+                        <div className="mt-2 text-xs font-mono text-[#d5cfc4]">
+                          <span className="text-[10px] text-zinc-500 block uppercase">Account Name / Holder</span>
+                          <strong className="text-zinc-200">{acc.accountName}</strong>
+                        </div>
+
+                        {/* Notes */}
+                        {acc.notes && (
+                          <div className="mt-2 p-2 rounded bg-[#160f08] border border-amber-400/20 text-[11px] text-[#f7e2a9] font-sinhala italic">
+                            💡 {acc.notes}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Card Bottom Actions */}
+                      <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5">
+                          {!acc.isDefault && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setDefaultBankAccount(acc.id);
+                                showToast(`${acc.bankName} set as primary default account!`);
+                              }}
+                              className="px-2.5 py-1 rounded bg-[#2b1e0a] hover:bg-amber-400 hover:text-black border border-amber-400/40 text-amber-300 text-[11px] font-mono flex items-center gap-1 cursor-pointer transition-all"
+                              title="Set this bank account as default"
+                            >
+                              <Star className="w-3 h-3" />
+                              <span>Set Default</span>
+                            </button>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => handleStartEditBankAccount(acc)}
+                            className="px-2.5 py-1 rounded bg-[#1f1418] hover:bg-[#321721] border border-[#dfb56c]/40 text-[#f7e2a9] text-[11px] font-mono flex items-center gap-1 cursor-pointer transition-all"
+                            title="Edit Bank Details"
+                          >
+                            <Edit className="w-3 h-3 text-[#dfb56c]" />
+                            <span>Edit</span>
+                          </button>
+                        </div>
+
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const details = `• Bank: ${acc.bankName}\n• Account Name: ${acc.accountName}\n• Account Number: ${acc.accountNumber}\n• Branch: ${acc.branch}${acc.swiftCode ? `\n• SWIFT: ${acc.swiftCode}` : ''}${acc.notes ? `\n• උපදෙස්: ${acc.notes}` : ''}`;
+                              if (navigator.clipboard) {
+                                navigator.clipboard.writeText(details);
+                                showToast(`Full bank details for ${acc.bankName} copied!`);
+                              }
+                            }}
+                            className="px-2 py-1 rounded bg-black/60 hover:bg-black border border-white/10 text-zinc-300 text-[11px] font-mono flex items-center gap-1 cursor-pointer"
+                            title="Copy full bank details for sharing"
+                          >
+                            <Copy className="w-3 h-3" />
+                            <span>Copy Details</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteBankAccount(acc.id, acc.bankName)}
+                            className="p-1.5 rounded hover:bg-red-950/60 text-red-400 hover:text-red-300 cursor-pointer"
+                            title="Delete this bank account"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Informational Guidance Box */}
+              <div className="p-4 rounded-xl bg-[#0c090a] border border-amber-400/30 flex items-start gap-3 text-xs font-sans">
+                <span className="text-xl shrink-0">💡</span>
+                <div className="space-y-1 text-[#d5cfc4]">
+                  <strong className="text-amber-300 block font-mono uppercase tracking-wider text-[11px]">
+                    Automatic CRM Bank Account Synchronization
+                  </strong>
+                  <p className="leading-relaxed font-sinhala">
+                    ඔබ මෙහි එක් කරන හෝ සංස්කරණය කරන ඕනෑම බැංකු ගිණුමක් ස්වයංක්‍රීයව View Leads CRM හා සම්බන්ධ වේ. ශිෂ්‍යයෙකුට WhatsApp පණිවිඩයක් යැවීමේදී ඔබට අවශ්‍ය බැංකු ගිණුම (Commercial, Sampath, BOC, HNB ආදී) එක ක්ලික් එකකින් තෝරාගත හැකි අතර, එම ගිණුමේ විස්තර පණිවිඩයේ &#123;bank_details&#125; ඇති තැනට ස්වයංක්‍රීයව ආදේශ වේ.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
 
           {/* ========================================================= */}
           {/* CRM CALL LOGGER & NOTES MODAL                             */}
@@ -1580,8 +3051,8 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
                       type="button"
                       onClick={() => {
                         setWhatsappModalLead(callLoggingLead);
-                        setWhatsappTemplateType('no_answer');
-                        setCustomWhatsappMessage(getWhatsAppMessageText(callLoggingLead, 'no_answer'));
+                        setSelectedTemplateId('tpl-no-answer');
+                        setCustomWhatsappMessage(getWhatsAppMessageText(callLoggingLead, 'tpl-no-answer'));
                       }}
                       className="px-3 py-1 rounded bg-[#25D366]/20 hover:bg-[#25D366] hover:text-black border border-[#25D366]/50 text-[#25D366] text-xs font-mono font-bold flex items-center gap-1.5 cursor-pointer transition-all"
                     >
@@ -1781,75 +3252,418 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
 
                 {/* Modal Body */}
                 <div className="p-5 overflow-y-auto space-y-4 flex-1">
-                  <div>
-                    <label className="block text-xs font-mono uppercase text-[#dfb56c] mb-2 font-bold">
+                  {/* Bank Account Selector for this Message */}
+                  <div className="p-3 bg-black/60 rounded-lg border border-[#dfb56c]/30 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-mono uppercase text-[#dfb56c] font-bold flex items-center gap-1.5">
+                        <CreditCard className="w-3.5 h-3.5 text-[#dfb56c]" />
+                        <span>Select Academy Bank Account / බැංකු ගිණුම තෝරන්න:</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setWhatsappModalLead(null);
+                          setActiveTab('banks');
+                        }}
+                        className="text-[10px] font-mono text-[#dfb56c] hover:underline flex items-center gap-1 cursor-pointer"
+                        title="Manage Academy Bank Accounts"
+                      >
+                        <Settings className="w-3 h-3" />
+                        <span>Manage Banks</span>
+                      </button>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                      {bankAccounts
+                        .filter((b) => b.isActive !== false)
+                        .map((acc) => {
+                          const isAccSelected =
+                            selectedBankAccountId === acc.id ||
+                            (!selectedBankAccountId && acc.isDefault);
+
+                          return (
+                            <button
+                              key={acc.id}
+                              type="button"
+                              onClick={() => {
+                                setSelectedBankAccountId(acc.id);
+                                const currentTpl = whatsappTemplates.find((t) => t.id === selectedTemplateId);
+                                if (currentTpl) {
+                                  setCustomWhatsappMessage(
+                                    formatTemplateForLead(currentTpl.message, whatsappModalLead, acc)
+                                  );
+                                }
+                                showToast(`Selected: ${acc.bankName} (${acc.accountNumber})`);
+                              }}
+                              className={`px-3 py-2 rounded-lg border text-left transition-all cursor-pointer flex items-center gap-2.5 text-xs ${
+                                isAccSelected
+                                  ? 'bg-[#dfb56c]/20 border-[#dfb56c] text-white shadow-md ring-1 ring-[#dfb56c]/50'
+                                  : 'bg-[#140b0e] border-white/10 text-[#a89f91] hover:border-white/30 hover:text-white'
+                              }`}
+                            >
+                              <Building
+                                className={`w-4 h-4 shrink-0 ${
+                                  isAccSelected ? 'text-[#dfb56c]' : 'text-zinc-500'
+                                }`}
+                              />
+                              <div>
+                                <div className="flex items-center gap-1 font-bold">
+                                  <span>{acc.bankName}</span>
+                                  {acc.isDefault && (
+                                    <span className="text-[9px] px-1 py-0.2 bg-[#dfb56c]/30 text-[#dfb56c] rounded border border-[#dfb56c]/40">
+                                      ⭐ Default
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-[10px] font-mono text-[#d5cfc4]/80">
+                                  {acc.accountNumber} • {acc.branch}
+                                </div>
+                              </div>
+                            </button>
+                          );
+                        })}
+                    </div>
+                  </div>
+
+                  {/* Template Picker Header & Quick Actions */}
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <label className="block text-xs font-mono uppercase text-[#dfb56c] font-bold">
                       Choose Message Template / පණිවිඩ ආකෘතිය:
                     </label>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs font-mono">
+
+                    <div className="flex items-center gap-2">
                       <button
                         type="button"
                         onClick={() => {
-                          setWhatsappTemplateType('no_answer');
-                          setCustomWhatsappMessage(getWhatsAppMessageText(whatsappModalLead, 'no_answer'));
+                          setIsAddingTemplateInModal(!isAddingTemplateInModal);
+                          setIsEditingTemplateInModal(false);
+                          setModalTemplateName('');
+                          setModalTemplateNameSinhala('');
+                          setModalTemplateBadge('Custom');
+                          setModalTemplateCategory('lead_crm');
+                          setModalTemplateMessage(
+                            `ආයුබෝවන් {student_name},\nඔබ {campaign_title} පාඨමාලාව සඳහා සම්බන්ධ වීමට කැමැත්ත පළ කර තිබුණි.\n\nබැංකු තොරතුරු:\n{bank_details}\n\nස්තූතියි!\nCeylon Style Studio Admissions Desk`
+                          );
                         }}
-                        className={`p-2.5 rounded border text-left cursor-pointer transition-all ${
-                          whatsappTemplateType === 'no_answer'
-                            ? 'bg-[#25D366]/20 border-[#25D366] text-white font-bold'
-                            : 'bg-[#140b0e] border-white/10 text-[#a89f91] hover:text-white'
-                        }`}
+                        className="px-2 py-1 rounded bg-[#25D366]/20 border border-[#25D366]/50 text-[#25D366] hover:bg-[#25D366] hover:text-black text-[10px] font-bold font-mono flex items-center gap-1 cursor-pointer transition-all"
+                        title="Add a brand new WhatsApp template right here"
                       >
-                        <span className="block text-[11px] text-red-300 font-bold mb-1">📵 Call No Answer</span>
-                        <span className="text-[10px] font-sinhala block text-[#d5cfc4]">ඇමතුමට පිළිතුරු නොදුන් පසු</span>
+                        <Plus className="w-3 h-3" />
+                        <span>➕ New Template</span>
                       </button>
+
+                      {selectedTemplateId && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const cur = whatsappTemplates.find((t) => t.id === selectedTemplateId);
+                            if (cur) {
+                              setIsEditingTemplateInModal(!isEditingTemplateInModal);
+                              setIsAddingTemplateInModal(false);
+                              setModalTemplateName(cur.name);
+                              setModalTemplateNameSinhala(cur.nameSinhala || '');
+                              setModalTemplateBadge(cur.badge || 'Template');
+                              setModalTemplateCategory(cur.category || 'lead_crm');
+                              setModalTemplateMessage(cur.message);
+                            }
+                          }}
+                          className="px-2 py-1 rounded bg-zinc-800 border border-white/20 text-zinc-300 hover:text-white hover:border-[#dfb56c] text-[10px] font-mono flex items-center gap-1 cursor-pointer transition-all"
+                          title="Edit the currently selected template"
+                        >
+                          <Edit3 className="w-3 h-3 text-[#dfb56c]" />
+                          <span>✏️ Edit Template</span>
+                        </button>
+                      )}
 
                       <button
                         type="button"
                         onClick={() => {
-                          setWhatsappTemplateType('payment');
-                          setCustomWhatsappMessage(getWhatsAppMessageText(whatsappModalLead, 'payment'));
+                          setWhatsappModalLead(null);
+                          setActiveTab('templates');
                         }}
-                        className={`p-2.5 rounded border text-left cursor-pointer transition-all ${
-                          whatsappTemplateType === 'payment'
-                            ? 'bg-[#25D366]/20 border-[#25D366] text-white font-bold'
-                            : 'bg-[#140b0e] border-white/10 text-[#a89f91] hover:text-white'
-                        }`}
+                        className="text-[10px] font-mono text-[#25D366] hover:underline flex items-center gap-1 cursor-pointer"
+                        title="Manage all templates in backend"
                       >
-                        <span className="block text-[11px] text-yellow-300 font-bold mb-1">💳 Bank &amp; Payment</span>
-                        <span className="text-[10px] font-sinhala block text-[#d5cfc4]">බැංකු ගිණුම් විස්තර</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setWhatsappTemplateType('welcome');
-                          setCustomWhatsappMessage(getWhatsAppMessageText(whatsappModalLead, 'welcome'));
-                        }}
-                        className={`p-2.5 rounded border text-left cursor-pointer transition-all ${
-                          whatsappTemplateType === 'welcome'
-                            ? 'bg-[#25D366]/20 border-[#25D366] text-white font-bold'
-                            : 'bg-[#140b0e] border-white/10 text-[#a89f91] hover:text-white'
-                        }`}
-                      >
-                        <span className="block text-[11px] text-emerald-300 font-bold mb-1">✨ Welcome &amp; Details</span>
-                        <span className="text-[10px] font-sinhala block text-[#d5cfc4]">සාදරයෙන් පිළිගැනීම</span>
+                        <Settings className="w-3 h-3" />
+                        <span>Backend Manager</span>
                       </button>
                     </div>
                   </div>
 
+                  {/* In-Modal Template Editor Form (if adding or editing) */}
+                  {(isAddingTemplateInModal || isEditingTemplateInModal) && (
+                    <div className="p-4 rounded-xl bg-gradient-to-br from-[#1a120c] to-[#120a0d] border-2 border-[#25D366]/60 shadow-xl space-y-3">
+                      <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                        <span className="text-xs font-mono uppercase text-[#25D366] font-bold flex items-center gap-1.5">
+                          <MessageSquare className="w-4 h-4" />
+                          <span>
+                            {isEditingTemplateInModal
+                              ? `Edit Template: ${modalTemplateName}`
+                              : 'Create New WhatsApp Template'}
+                          </span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsAddingTemplateInModal(false);
+                            setIsEditingTemplateInModal(false);
+                          }}
+                          className="text-zinc-400 hover:text-white text-xs font-mono cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                        <div>
+                          <label className="block text-[10px] font-mono text-[#a89f91] mb-1">
+                            Template Name (English) *
+                          </label>
+                          <input
+                            type="text"
+                            value={modalTemplateName}
+                            onChange={(e) => setModalTemplateName(e.target.value)}
+                            placeholder="e.g. Bank Payment Reminder"
+                            className="w-full px-2.5 py-1.5 bg-black border border-white/20 rounded text-xs text-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-mono text-[#a89f91] mb-1">
+                            Name (සිංහල විස්තරය)
+                          </label>
+                          <input
+                            type="text"
+                            value={modalTemplateNameSinhala}
+                            onChange={(e) => setModalTemplateNameSinhala(e.target.value)}
+                            placeholder="ගෙවීම් සිහිකැඳවීම"
+                            className="w-full px-2.5 py-1.5 bg-black border border-white/20 rounded text-xs text-white font-sinhala"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-mono text-[#a89f91] mb-1">
+                            Badge Label
+                          </label>
+                          <input
+                            type="text"
+                            value={modalTemplateBadge}
+                            onChange={(e) => setModalTemplateBadge(e.target.value)}
+                            placeholder="e.g. Bank, Urgent, Offer"
+                            className="w-full px-2.5 py-1.5 bg-black border border-white/20 rounded text-xs text-white"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="text-[10px] font-mono text-[#a89f91]">
+                            Template Message Body (Supports dynamic tokens) *
+                          </label>
+                          <span className="text-[10px] font-mono text-[#dfb56c]">
+                            {modalTemplateMessage.length} chars
+                          </span>
+                        </div>
+                        <textarea
+                          rows={4}
+                          value={modalTemplateMessage}
+                          onChange={(e) => setModalTemplateMessage(e.target.value)}
+                          className="w-full px-3 py-2 bg-black border border-white/20 rounded text-xs text-white font-sans focus:border-[#25D366] outline-none"
+                        />
+                        {/* Token Buttons for modal editor */}
+                        <div className="mt-1.5 flex flex-wrap gap-1 text-[10px] font-mono">
+                          <span className="text-zinc-500">Insert:</span>
+                          {[
+                            { tag: '{student_name}', label: 'Student' },
+                            { tag: '{campaign_title}', label: 'Course' },
+                            { tag: '{fee}', label: 'Fee' },
+                            { tag: '{bank_details}', label: '💳 Bank Details' },
+                            { tag: '{bank_name}', label: 'Bank Name' },
+                            { tag: '{account_no}', label: 'Acc No' },
+                            { tag: '{branch}', label: 'Branch' },
+                          ].map((t) => (
+                            <button
+                              key={t.tag}
+                              type="button"
+                              onClick={() => setModalTemplateMessage((prev) => prev + ' ' + t.tag)}
+                              className="px-1.5 py-0.5 rounded bg-black/60 border border-white/10 text-[#dfb56c] hover:border-[#dfb56c] cursor-pointer"
+                            >
+                              +{t.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="flex justify-end gap-2 pt-2 border-t border-white/10">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsAddingTemplateInModal(false);
+                            setIsEditingTemplateInModal(false);
+                          }}
+                          className="px-3 py-1.5 bg-zinc-800 text-zinc-300 text-xs rounded font-mono cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleSaveTemplateFromModal}
+                          className="px-4 py-1.5 bg-[#25D366] text-black text-xs font-bold rounded flex items-center gap-1.5 shadow hover:brightness-110 cursor-pointer"
+                        >
+                          <Save className="w-3.5 h-3.5" />
+                          <span>Save to Backend &amp; Select</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Template Cards Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-60 overflow-y-auto p-1 border border-white/10 rounded-lg bg-black/40">
+                    {whatsappTemplates.map((tpl) => {
+                      const isSelected = selectedTemplateId === tpl.id;
+                      const activeBank =
+                        (selectedBankAccountId
+                          ? bankAccounts.find((b) => b.id === selectedBankAccountId)
+                          : undefined) ||
+                        bankAccounts.find((b) => b.isDefault && b.isActive) ||
+                        bankAccounts.find((b) => b.isActive) ||
+                        bankAccounts[0];
+
+                      const previewFormatted = formatTemplateForLead(tpl.message, whatsappModalLead, activeBank);
+                      const cleanPhone = getCleanWhatsAppPhone(whatsappModalLead.whatsappNumber);
+                      const directUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(previewFormatted)}`;
+
+                      return (
+                        <div
+                          key={tpl.id}
+                          className={`p-3 rounded-lg border transition-all flex flex-col justify-between ${
+                            isSelected
+                              ? 'bg-[#25D366]/15 border-[#25D366] text-white shadow-md'
+                              : 'bg-[#140b0e] border-white/10 text-[#a89f91] hover:border-white/30 hover:text-white'
+                          }`}
+                        >
+                          <div
+                            onClick={() => {
+                              setSelectedTemplateId(tpl.id);
+                              setCustomWhatsappMessage(previewFormatted);
+                            }}
+                            className="cursor-pointer"
+                          >
+                            <div className="flex items-center justify-between gap-1 mb-1.5">
+                              <span
+                                className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                                  tpl.badgeBg || 'bg-emerald-950/80'
+                                } ${tpl.badgeText || 'text-emerald-300'} border ${
+                                  tpl.badgeBorder || 'border-emerald-500/40'
+                                }`}
+                              >
+                                {tpl.badge || tpl.name}
+                              </span>
+                              {isSelected && (
+                                <span className="text-[9px] font-mono text-[#25D366] font-bold">● Active</span>
+                              )}
+                            </div>
+                            <h5 className="text-xs font-bold text-white line-clamp-1">{tpl.name}</h5>
+                            {tpl.nameSinhala && (
+                              <p className="text-[10px] font-sinhala text-[#d5cfc4] line-clamp-1 mt-0.5">
+                                {tpl.nameSinhala}
+                              </p>
+                            )}
+                            <p className="text-[10px] text-zinc-300 line-clamp-2 mt-1.5 font-sans italic bg-black/60 p-1.5 rounded border border-white/5">
+                              {previewFormatted}
+                            </p>
+                          </div>
+
+                          <div className="mt-2.5 pt-2 border-t border-white/10 flex items-center justify-between gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedTemplateId(tpl.id);
+                                setCustomWhatsappMessage(previewFormatted);
+                              }}
+                              className="text-[10px] font-mono text-[#dfb56c] hover:underline cursor-pointer"
+                            >
+                              Select &amp; Edit
+                            </button>
+                            <a
+                              href={directUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={() => {
+                                showToast(`Direct WhatsApp opened for ${whatsappModalLead.fullName}!`);
+                                setWhatsappModalLead(null);
+                              }}
+                              className="px-2.5 py-1 rounded bg-[#25D366] hover:bg-[#20ba59] text-black text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-all shadow"
+                              title="Directly open this template into student's WhatsApp chat"
+                            >
+                              <Send className="w-2.5 h-2.5 fill-black" />
+                              <span>1-Click Send</span>
+                            </a>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Message editor */}
                   <div>
-                    <label className="block text-xs font-mono uppercase text-[#dfb56c] mb-1 font-bold">
-                      Message Content (Editable before sending)
-                    </label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-mono uppercase text-[#dfb56c] font-bold">
+                        Message Content (Editable before sending)
+                      </label>
+                      <span className="text-[10px] font-mono text-[#a89f91]">
+                        {customWhatsappMessage.length} characters
+                      </span>
+                    </div>
                     <textarea
-                      rows={8}
+                      rows={6}
                       value={customWhatsappMessage}
                       onChange={(e) => setCustomWhatsappMessage(e.target.value)}
                       className="w-full px-3.5 py-2.5 bg-black border border-white/15 rounded text-xs text-white focus:border-[#25D366] outline-none leading-relaxed font-sans"
                     />
+
+                    {/* Quick Dynamic Tag Chips */}
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[10px] font-mono">
+                      <span className="text-zinc-500">Insert tag:</span>
+                      {[
+                        { tag: '{student_name}', label: 'Student Name' },
+                        { tag: '{campaign_title}', label: 'Course' },
+                        { tag: '{ref_id}', label: 'Ref ID' },
+                        { tag: '{fee}', label: 'Fee' },
+                        { tag: '{location}', label: 'Location' },
+                        { tag: '{mode}', label: 'Mode' },
+                        { tag: '{bank_details}', label: '💳 Bank Details' },
+                        { tag: '{bank_name}', label: 'Bank Name' },
+                        { tag: '{account_no}', label: 'Account No' },
+                        { tag: '{branch}', label: 'Branch' },
+                      ].map((item) => (
+                        <button
+                          key={item.tag}
+                          type="button"
+                          onClick={() => {
+                            const activeBank =
+                              (selectedBankAccountId
+                                ? bankAccounts.find((b) => b.id === selectedBankAccountId)
+                                : undefined) ||
+                              bankAccounts.find((b) => b.isDefault && b.isActive) ||
+                              bankAccounts.find((b) => b.isActive) ||
+                              bankAccounts[0];
+
+                            const formattedTag = formatTemplateForLead(item.tag, whatsappModalLead, activeBank);
+                            setCustomWhatsappMessage((prev) => prev + ' ' + formattedTag);
+                          }}
+                          className="px-1.5 py-0.5 rounded bg-[#1c1013] border border-white/10 text-[#dfb56c] hover:border-[#dfb56c] cursor-pointer"
+                          title={`Insert ${item.label}`}
+                        >
+                          +{item.label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
-                  <div className="p-3 rounded bg-[#0d1a10] border border-[#25D366]/30 text-[11px] text-[#b4dfbe] font-sinhala">
-                    💡 "Send via WhatsApp" ක්ලික් කළ විට ඔබගේ WhatsApp Web හෝ Mobile App එක කෙලින්ම විවෘත වී මෙම පණිවිඩය සූදානම්ව පෙන්වනු ඇත.
+                  <div className="p-2.5 rounded bg-[#0d1a10] border border-[#25D366]/30 text-[11px] text-[#b4dfbe] font-sinhala flex items-start gap-2">
+                    <span className="text-base shrink-0">💡</span>
+                    <span>
+                      "Send via WhatsApp Now" හෝ "1-Click Send" ක්ලික් කළ විට එම ශිෂ්‍යයාගේ පුද්ගලික WhatsApp ගිණුමටම (<span className="font-mono text-[#25D366]">wa.me/{getCleanWhatsAppPhone(whatsappModalLead.whatsappNumber)}</span>) පණිවිඩය කෙලින්ම සූදානම්ව විවෘත වේ. තෝරාගත් බැංකු ගිණුම් විස්තර ({'{bank_details}'}) ස්වයංක්‍රීයව එක් වේ.
+                    </span>
                   </div>
                 </div>
 
@@ -1864,7 +3678,7 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
                   </button>
 
                   <a
-                    href={`https://wa.me/${whatsappModalLead.whatsappNumber.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
+                    href={`https://wa.me/${getCleanWhatsAppPhone(whatsappModalLead.whatsappNumber)}?text=${encodeURIComponent(
                       customWhatsappMessage
                     )}`}
                     target="_blank"
@@ -2295,8 +4109,6 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
               </div>
             );
           })()}
-        </div>
-      )}
 
       {/* ========================================================= */}
       {/* CAMPAIGN BUILDER MODAL EDITOR                             */}
@@ -2327,13 +4139,15 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
               {[
                 { id: 'basics', label: '1. Basics & Cover Image' },
                 { id: 'about', label: `2. About Course Points (${editingCampaign.aboutPoints?.length || 0})` },
-                { id: 'videos', label: `3. Videos (${editingCampaign.videos?.length || 0})` },
-                { id: 'gallery', label: `4. Gallery (${editingCampaign.galleryImages?.length || 0})` },
-                { id: 'certificate', label: '5. Certificate Showcase' },
-                { id: 'pdf', label: '6. PDF Brochure' },
-                { id: 'reviews', label: `7. Student Reviews (${editingCampaign.studentReviews?.length || 0})` },
-                { id: 'pricing', label: '8. Pricing & Urgency' },
-                { id: 'form', label: '9. Form & Date Lines Customizer' },
+                { id: 'posts', label: `3. Promo Posts (${editingCampaign.postImages?.length || 0})` },
+                { id: 'banners', label: `4. Web Banners (${editingCampaign.sectionBanners?.length || 0})` },
+                { id: 'videos', label: `5. Videos (${editingCampaign.videos?.length || 0})` },
+                { id: 'gallery', label: `6. Gallery (${editingCampaign.galleryImages?.length || 0})` },
+                { id: 'certificate', label: '7. Certificate Showcase' },
+                { id: 'pdf', label: '8. PDF Brochure' },
+                { id: 'reviews', label: `9. Student Reviews (${editingCampaign.studentReviews?.length || 0})` },
+                { id: 'pricing', label: '10. Pricing & Urgency' },
+                { id: 'form', label: '11. Form & Date Lines Customizer' },
               ].map((tab) => (
                 <button
                   key={tab.id}
@@ -2905,7 +4719,763 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
                 </div>
               )}
 
-              {/* TAB 3: VIDEOS */}
+              {/* TAB 3: PROMOTIONAL POST IMAGES */}
+              {campaignEditorTab === 'posts' && (
+                <div className="space-y-5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/10 pb-3">
+                    <div>
+                      <h4 className="text-sm font-bold text-white font-editorial flex items-center gap-2">
+                        <ImageIcon className="w-4 h-4 text-[#dfb56c]" />
+                        <span>Promotional Post Images &amp; Ad Creatives (ෆේස්බුක් දැන්වීම් / පෝස්ට් ඡායාරූප)</span>
+                      </h4>
+                      <p className="text-xs text-[#a89f91] font-sinhala mt-0.5">
+                        Landing Page එකෙහි පෙන්වන ප්‍රවර්ධන දැන්වීම් පෝස්ට් (Facebook Ad Creative Flyers) මෙහි එක් කරන්න. මේවා 100% පැහැදිලිව (Crystal Clear - කිසිදු අඳුරු Filter එකක් නොමැතිව) සහ HD Zoom Lightbox සහිතව පෙන්වයි.
+                      </p>
+                    </div>
+                    <span className="text-xs font-mono px-2.5 py-1 rounded bg-[#1c1013] border border-[#dfb56c]/40 text-[#dfb56c] font-bold shrink-0">
+                      Total Posts: {editingCampaign.postImages?.length || 0}
+                    </span>
+                  </div>
+
+                  {/* Add New Post Image Box */}
+                  <div className="p-4 rounded-xl bg-black/60 border border-[#dfb56c]/40 space-y-4 shadow-lg">
+                    <span className="text-xs font-mono uppercase text-[#dfb56c] font-bold flex items-center gap-1.5">
+                      <Plus className="w-3.5 h-3.5 text-[#dfb56c]" />
+                      <span>Add New Promotional Post Image / නව දැන්වීම් පෝස්ට් එකක් එක් කරන්න</span>
+                    </span>
+
+                    {/* Method 1: Local Device Upload */}
+                    <div className="p-3.5 rounded-lg bg-[#140b0e] border border-dashed border-[#dfb56c]/60 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-mono uppercase text-[#dfb56c] font-bold flex items-center gap-1.5">
+                          <Upload className="w-3.5 h-3.5 text-[#dfb56c]" />
+                          <span>Option 1: Upload Post Image File (Local Device / Phone / PC)</span>
+                        </span>
+                        {isUploadingPostImage && (
+                          <span className="text-[11px] font-mono text-amber-300 animate-pulse flex items-center gap-1">
+                            <RefreshCw className="w-3 h-3 animate-spin" /> Processing Image...
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row items-center gap-3">
+                        <label className="w-full sm:w-auto px-4 py-2 rounded bg-gradient-to-r from-[#540d18] to-[#3a0910] hover:from-[#6b111f] hover:to-[#4d0c15] border border-[#dfb56c] text-[#f7e2a9] text-xs font-mono font-bold flex items-center justify-center gap-2 cursor-pointer transition-all shadow hover:scale-[1.02]">
+                          <Upload className="w-4 h-4 text-[#dfb56c]" />
+                          <span>Choose Post Image File / ඡායාරූපය තෝරන්න</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handlePostImageFileChange}
+                            disabled={isUploadingPostImage}
+                            className="hidden"
+                          />
+                        </label>
+                        <span className="text-[11px] text-[#a89f91] font-sinhala text-center sm:text-left">
+                          PNG, JPG, WEBP (HD Quality, 100% පැහැදිලිව සුරැකේ)
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Method 2: Direct URL */}
+                    <div>
+                      <label className="block text-[11px] font-mono text-[#a89f91] mb-1">
+                        Option 2: Direct Image URL / වෙබ් ලින්ක් මගින්
+                      </label>
+                      <input
+                        type="url"
+                        value={postImageUrl}
+                        onChange={(e) => setPostImageUrl(e.target.value)}
+                        placeholder="https://images.unsplash.com/... or paste image URL"
+                        className="w-full px-3 py-2 bg-[#140b0e] border border-white/15 rounded text-xs text-white font-mono focus:border-[#dfb56c] outline-none"
+                      />
+                    </div>
+
+                    {/* Quick Presets */}
+                    <div>
+                      <span className="block text-[10px] font-mono uppercase text-[#a89f91] mb-1.5">
+                        ⚡ Quick Creative Flyer Presets / උසස් ආකෘති:
+                      </span>
+                      <div className="flex flex-wrap gap-1.5 text-xs">
+                        {[
+                          { name: '👗 Haute Couture Studio', url: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=1200&q=80', badge: '🔥 LIMITED SEATS' },
+                          { name: '✂️ Pattern Drafting Table', url: 'https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&w=1200&q=80', badge: 'BATCH ENROLLMENT' },
+                          { name: '🧵 Tailoring Masterclass', url: 'https://images.unsplash.com/photo-1558769132-cb1aea458c5e?auto=format&fit=crop&w=1200&q=80', badge: 'POPULAR' },
+                          { name: '🎓 Diploma Runway & Convocation', url: 'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&w=1200&q=80', badge: 'TVEC RECOGNIZED' },
+                          { name: '🎨 Fashion Illustration', url: 'https://images.unsplash.com/photo-1537832816519-689ad163238b?auto=format&fit=crop&w=1200&q=80', badge: 'CREATIVE ATELIER' },
+                        ].map((preset, pIdx) => (
+                          <button
+                            key={pIdx}
+                            type="button"
+                            onClick={() => {
+                              setPostImageUrl(preset.url);
+                              setPostBadge(preset.badge);
+                              showToast(`Applied preset: ${preset.name}`);
+                            }}
+                            className="px-2.5 py-1 rounded bg-[#1c1013] border border-white/10 hover:border-[#dfb56c] text-[#dfb56c] text-[11px] font-mono cursor-pointer transition-all hover:bg-[#540d18]/40"
+                          >
+                            {preset.name}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Metadata: Title & Badge */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-xs font-mono uppercase text-[#dfb56c] mb-1 font-bold">
+                          Badge / Tag Label
+                        </label>
+                        <input
+                          type="text"
+                          value={postBadge}
+                          onChange={(e) => setPostBadge(e.target.value)}
+                          placeholder="e.g. 🔥 NEW BATCH / SPECIAL OFFER"
+                          className="w-full px-3 py-2 bg-[#140b0e] border border-white/15 rounded text-xs text-white focus:border-[#dfb56c] outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-mono uppercase text-[#dfb56c] mb-1 font-bold">
+                          Post Title (English)
+                        </label>
+                        <input
+                          type="text"
+                          value={postTitle}
+                          onChange={(e) => setPostTitle(e.target.value)}
+                          placeholder="e.g. Weekend Intensive Masterclass"
+                          className="w-full px-3 py-2 bg-[#140b0e] border border-white/15 rounded text-xs text-white focus:border-[#dfb56c] outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-mono uppercase text-[#dfb56c] mb-1 font-bold">
+                          Post Title (Sinhala)
+                        </label>
+                        <input
+                          type="text"
+                          value={postTitleSinhala}
+                          onChange={(e) => setPostTitleSinhala(e.target.value)}
+                          placeholder="e.g. සති අන්ත ප්‍රායෝගික වැඩමුළුව"
+                          className="w-full px-3 py-2 bg-[#140b0e] border border-white/15 rounded text-xs text-white focus:border-[#dfb56c] outline-none font-sinhala"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Metadata: Captions */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-mono uppercase text-[#dfb56c] mb-1 font-bold">
+                          Caption (English)
+                        </label>
+                        <input
+                          type="text"
+                          value={postCaption}
+                          onChange={(e) => setPostCaption(e.target.value)}
+                          placeholder="e.g. Direct hands-on couture draping & garment construction"
+                          className="w-full px-3 py-2 bg-[#140b0e] border border-white/15 rounded text-xs text-white focus:border-[#dfb56c] outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-mono uppercase text-[#dfb56c] mb-1 font-bold">
+                          Caption (Sinhala)
+                        </label>
+                        <input
+                          type="text"
+                          value={postCaptionSinhala}
+                          onChange={(e) => setPostCaptionSinhala(e.target.value)}
+                          placeholder="e.g. ප්‍රවීණ දේශකයන් යටතේ ප්‍රායෝගික මෝස්තර නිර්මාණ පුහුණුව"
+                          className="w-full px-3 py-2 bg-[#140b0e] border border-white/15 rounded text-xs text-white focus:border-[#dfb56c] outline-none font-sinhala"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Image Preview if URL/Upload set */}
+                    {postImageUrl && (
+                      <div className="relative rounded-lg overflow-hidden border border-[#dfb56c]/50 h-36 bg-black flex items-center justify-center">
+                        <img
+                          src={postImageUrl}
+                          alt="Post Preview"
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end p-2.5">
+                          <span className="text-[11px] font-mono text-[#dfb56c] font-bold">
+                            Preview: {postTitle || 'Untitled Post'} ({postBadge})
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Add Button */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!postImageUrl.trim()) {
+                          showToast('Please select or upload a post image first!');
+                          return;
+                        }
+                        const current = editingCampaign.postImages || [];
+                        const newPost: CampaignPostImage = {
+                          id: `post-${Date.now()}-${current.length + 1}`,
+                          imageUrl: postImageUrl.trim(),
+                          title: postTitle.trim() || undefined,
+                          titleSinhala: postTitleSinhala.trim() || undefined,
+                          caption: postCaption.trim() || undefined,
+                          captionSinhala: postCaptionSinhala.trim() || undefined,
+                          badge: postBadge.trim() || undefined,
+                          order: current.length + 1,
+                        };
+                        setEditingCampaign({
+                          ...editingCampaign,
+                          postImages: [...current, newPost],
+                        });
+                        setPostImageUrl('');
+                        setPostTitle('');
+                        setPostTitleSinhala('');
+                        setPostCaption('');
+                        setPostCaptionSinhala('');
+                        showToast('Promotional post image added to campaign! Click "Save Campaign" below to save.');
+                      }}
+                      className="w-full py-2.5 rounded bg-gradient-to-r from-[#dfb56c] to-[#c99a45] hover:brightness-110 text-black font-mono font-bold text-xs uppercase flex items-center justify-center gap-2 cursor-pointer shadow-lg transition-all"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Add Promotional Post Image / පෝස්ට් එකතු කරන්න</span>
+                    </button>
+                  </div>
+
+                  {/* Existing Post Images List */}
+                  <div className="space-y-3 pt-2">
+                    <h5 className="text-xs font-mono uppercase text-[#dfb56c] font-bold flex items-center justify-between">
+                      <span>Current Promotional Post Images ({editingCampaign.postImages?.length || 0})</span>
+                      <span className="text-[10px] text-zinc-400 font-normal">Displayed on landing page in full clear HD</span>
+                    </h5>
+
+                    {(!editingCampaign.postImages || editingCampaign.postImages.length === 0) ? (
+                      <div className="p-6 rounded-lg border border-dashed border-white/10 text-center text-xs text-zinc-500 font-mono">
+                        No promotional post images added yet. Upload an image above or use a preset to add ad creatives.
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {editingCampaign.postImages.map((post, pIdx) => (
+                          <div
+                            key={post.id || pIdx}
+                            className="p-3 rounded-lg bg-black/70 border border-white/15 flex flex-col justify-between gap-2.5 hover:border-[#dfb56c]/50 transition-all shadow-sm"
+                          >
+                            <div className="space-y-2">
+                              <div className="relative rounded overflow-hidden h-36 bg-zinc-900 border border-white/10">
+                                <img
+                                  src={post.imageUrl}
+                                  alt={post.title || `Post ${pIdx + 1}`}
+                                  className="w-full h-full object-cover"
+                                />
+                                {post.badge && (
+                                  <span className="absolute top-2 left-2 px-2 py-0.5 rounded bg-black/85 text-[#dfb56c] border border-[#dfb56c]/40 text-[10px] font-mono font-bold">
+                                    {post.badge}
+                                  </span>
+                                )}
+                                <span className="absolute bottom-2 right-2 px-1.5 py-0.5 rounded bg-black/80 text-[10px] font-mono text-zinc-300">
+                                  #{pIdx + 1}
+                                </span>
+                              </div>
+
+                              <div>
+                                {post.title && (
+                                  <div className="text-xs font-bold text-white leading-tight">
+                                    {post.title}
+                                  </div>
+                                )}
+                                {post.titleSinhala && (
+                                  <div className="text-xs text-[#dfb56c] font-sinhala leading-tight">
+                                    {post.titleSinhala}
+                                  </div>
+                                )}
+                                {post.caption && (
+                                  <p className="text-[11px] text-zinc-300 mt-1 line-clamp-2">
+                                    {post.caption}
+                                  </p>
+                                )}
+                                {post.captionSinhala && (
+                                  <p className="text-[11px] text-zinc-400 font-sinhala line-clamp-2">
+                                    {post.captionSinhala}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="pt-2 border-t border-white/10 flex items-center justify-between text-xs font-mono">
+                              <div className="flex items-center gap-1">
+                                {pIdx > 0 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const posts = [...(editingCampaign.postImages || [])];
+                                      const temp = posts[pIdx - 1];
+                                      posts[pIdx - 1] = posts[pIdx];
+                                      posts[pIdx] = temp;
+                                      setEditingCampaign({ ...editingCampaign, postImages: posts });
+                                    }}
+                                    className="p-1 rounded bg-white/5 hover:bg-white/15 text-zinc-300"
+                                    title="Move Up"
+                                  >
+                                    <ArrowUp className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                                {pIdx < (editingCampaign.postImages?.length || 0) - 1 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const posts = [...(editingCampaign.postImages || [])];
+                                      const temp = posts[pIdx + 1];
+                                      posts[pIdx + 1] = posts[pIdx];
+                                      posts[pIdx] = temp;
+                                      setEditingCampaign({ ...editingCampaign, postImages: posts });
+                                    }}
+                                    className="p-1 rounded bg-white/5 hover:bg-white/15 text-zinc-300"
+                                    title="Move Down"
+                                  >
+                                    <ArrowDown className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const updated = (editingCampaign.postImages || []).filter((_, i) => i !== pIdx);
+                                  setEditingCampaign({ ...editingCampaign, postImages: updated });
+                                  showToast('Promotional post removed');
+                                }}
+                                className="px-2 py-1 rounded text-red-400 hover:text-red-200 hover:bg-red-950/60 flex items-center gap-1 cursor-pointer"
+                                title="Delete post"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                <span>Remove</span>
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 4: INTER-SECTION WEB BANNERS */}
+              {campaignEditorTab === 'banners' && (
+                <div className="space-y-5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/10 pb-3">
+                    <div>
+                      <h4 className="text-sm font-bold text-white font-editorial flex items-center gap-2">
+                        <Layers className="w-4 h-4 text-[#dfb56c]" />
+                        <span>Inter-Section Web Banners (අන්තර්-කොටස් වෙබ් බැනර්)</span>
+                      </h4>
+                      <p className="text-xs text-[#a89f91] font-sinhala mt-0.5">
+                        Landing Page එකෙහි එක් එක් කොටස් අතර (Section to Section) ආකර්ෂණීය වෙබ් බැනර් ඇතුළත් කරන්න. විශේෂ වට්ටම්, ප්‍රසාද දීමනා හෝ වැදගත් නිවේදන ශිෂ්‍යයාට නිරන්තරයෙන් අවධානය යොමු කරවයි.
+                      </p>
+                    </div>
+                    <span className="text-xs font-mono px-2.5 py-1 rounded bg-[#1c1013] border border-[#dfb56c]/40 text-[#dfb56c] font-bold shrink-0">
+                      Total Banners: {editingCampaign.sectionBanners?.length || 0}
+                    </span>
+                  </div>
+
+                  {/* Add New Section Banner Box */}
+                  <div className="p-4 rounded-xl bg-black/60 border border-[#dfb56c]/40 space-y-4 shadow-lg">
+                    <span className="text-xs font-mono uppercase text-[#dfb56c] font-bold flex items-center gap-1.5">
+                      <Plus className="w-3.5 h-3.5 text-[#dfb56c]" />
+                      <span>Configure &amp; Add Inter-Section Banner / නව වෙබ් බැනරයක් එක් කරන්න</span>
+                    </span>
+
+                    {/* Position & Banner Type */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-mono uppercase text-[#dfb56c] mb-1 font-bold">
+                          Banner Placement Position / ස්ථානය තෝරන්න *
+                        </label>
+                        <select
+                          value={bannerPosition}
+                          onChange={(e) => setBannerPosition(e.target.value as CampaignBannerPosition)}
+                          className="w-full px-3 py-2.5 bg-[#140b0e] border border-white/15 rounded text-xs text-white focus:border-[#dfb56c] outline-none font-mono"
+                        >
+                          <option value="after_hero">1. Directly Below Urgency Bar &amp; Above Form (ප්‍රධාන Form එකට ඉහළින්)</option>
+                          <option value="after_form">2. Directly Below Lead Registration Form (Form එකට පහළින්)</option>
+                          <option value="after_about">3. Below Course Points &amp; Description (විෂය කරුණු වලට පහළින්)</option>
+                          <option value="after_posts">4. Below Promotional Post Creatives (Promo Posts වලට පහළින්)</option>
+                          <option value="after_gallery">5. Below Student Creations Gallery (Gallery එකට පහළින්)</option>
+                          <option value="after_certificate">6. Below Diploma Certificate Showcase (සහතිකයට පහළින්)</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-mono uppercase text-[#dfb56c] mb-1 font-bold">
+                          Banner Format Type / බැනර් ආකෘතිය *
+                        </label>
+                        <select
+                          value={bannerType}
+                          onChange={(e) => setBannerType(e.target.value as any)}
+                          className="w-full px-3 py-2.5 bg-[#140b0e] border border-white/15 rounded text-xs text-white focus:border-[#dfb56c] outline-none font-mono"
+                        >
+                          <option value="graphic">Graphic Announcement Banner (රන්වන් මාතෘකා, උපශීර්ෂ හා CTA බොත්තම සහිත)</option>
+                          <option value="image">Full-width Photo/Creative Web Banner (සම්පූර්ණ පලල ඡායාරූප බැනරය)</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {bannerType === 'graphic' ? (
+                      <div className="space-y-3 p-3.5 rounded-lg bg-[#140b0e] border border-white/10">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          <div>
+                            <label className="block text-xs font-mono uppercase text-[#dfb56c] mb-1 font-bold">
+                              Badge Tag
+                            </label>
+                            <input
+                              type="text"
+                              value={bannerBadge}
+                              onChange={(e) => setBannerBadge(e.target.value)}
+                              placeholder="e.g. 💎 EXCLUSIVE BONUS / LIMITED OFFER"
+                              className="w-full px-3 py-2 bg-black border border-white/15 rounded text-xs text-white focus:border-[#dfb56c] outline-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-mono uppercase text-[#dfb56c] mb-1 font-bold">
+                              CTA Button Text (English)
+                            </label>
+                            <input
+                              type="text"
+                              value={bannerButtonText}
+                              onChange={(e) => setBannerButtonText(e.target.value)}
+                              placeholder="e.g. Claim Discount Now"
+                              className="w-full px-3 py-2 bg-black border border-white/15 rounded text-xs text-white focus:border-[#dfb56c] outline-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-mono uppercase text-[#dfb56c] mb-1 font-bold">
+                              CTA Button Text (Sinhala)
+                            </label>
+                            <input
+                              type="text"
+                              value={bannerButtonTextSinhala}
+                              onChange={(e) => setBannerButtonTextSinhala(e.target.value)}
+                              placeholder="e.g. දැන්ම ලියාපදිංචි වන්න"
+                              className="w-full px-3 py-2 bg-black border border-white/15 rounded text-xs text-white focus:border-[#dfb56c] outline-none font-sinhala"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs font-mono uppercase text-[#dfb56c] mb-1 font-bold">
+                              Banner Headline (English) *
+                            </label>
+                            <input
+                              type="text"
+                              value={bannerTitle}
+                              onChange={(e) => setBannerTitle(e.target.value)}
+                              placeholder="e.g. Enroll This Week & Get Rs. 7,500 Discount!"
+                              className="w-full px-3 py-2 bg-black border border-white/15 rounded text-xs text-white focus:border-[#dfb56c] outline-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-mono uppercase text-[#dfb56c] mb-1 font-bold">
+                              Banner Headline (Sinhala)
+                            </label>
+                            <input
+                              type="text"
+                              value={bannerTitleSinhala}
+                              onChange={(e) => setBannerTitleSinhala(e.target.value)}
+                              placeholder="e.g. මෙම සතියේ ලියාපදිංචි වන සිසුන්ට රු. 7,500 ක සුවිශේෂී වට්ටමක්!"
+                              className="w-full px-3 py-2 bg-black border border-white/15 rounded text-xs text-white focus:border-[#dfb56c] outline-none font-sinhala"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs font-mono uppercase text-[#dfb56c] mb-1 font-bold">
+                              Subtitle Description (English)
+                            </label>
+                            <input
+                              type="text"
+                              value={bannerSubtitle}
+                              onChange={(e) => setBannerSubtitle(e.target.value)}
+                              placeholder="e.g. Includes Free Professional Pattern Kit & Lifetime Atelier Support"
+                              className="w-full px-3 py-2 bg-black border border-white/15 rounded text-xs text-white focus:border-[#dfb56c] outline-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-mono uppercase text-[#dfb56c] mb-1 font-bold">
+                              Subtitle Description (Sinhala)
+                            </label>
+                            <input
+                              type="text"
+                              value={bannerSubtitleSinhala}
+                              onChange={(e) => setBannerSubtitleSinhala(e.target.value)}
+                              placeholder="e.g. නොමිලේ Pattern Drafting Kit එක සහ ජීවිත කාලයටම උපදෙස් සහය"
+                              className="w-full px-3 py-2 bg-black border border-white/15 rounded text-xs text-white focus:border-[#dfb56c] outline-none font-sinhala"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Background Themes */}
+                        <div>
+                          <label className="block text-xs font-mono uppercase text-[#dfb56c] mb-1 font-bold">
+                            Banner Color Gradient Theme
+                          </label>
+                          <div className="flex flex-wrap gap-2 text-xs">
+                            {[
+                              { label: '🍷 Ruby Atelier Burgundy', val: 'from-[#3a0910] via-[#1a080d] to-[#0d0507]' },
+                              { label: '🏆 Golden Amber Royalty', val: 'from-[#38260b] via-[#1d1204] to-[#0c0802]' },
+                              { label: '🌿 Emerald Distinction', val: 'from-[#092b18] via-[#04170d] to-[#020d07]' },
+                              { label: '💎 Sapphire Midnight', val: 'from-[#0a1e38] via-[#050f1c] to-[#02070e]' },
+                            ].map((thm, tIdx) => (
+                              <button
+                                key={tIdx}
+                                type="button"
+                                onClick={() => setBannerBgColor(thm.val)}
+                                className={`px-3 py-1.5 rounded border text-xs font-mono cursor-pointer transition-all ${
+                                  bannerBgColor === thm.val
+                                    ? 'border-[#dfb56c] text-[#dfb56c] bg-[#2a1017]'
+                                    : 'border-white/10 text-zinc-400 hover:text-white bg-black/40'
+                                }`}
+                              >
+                                {thm.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      /* Image Banner Fields */
+                      <div className="space-y-3 p-3.5 rounded-lg bg-[#140b0e] border border-white/10">
+                        <div className="p-3 rounded-lg border border-dashed border-[#dfb56c]/60 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-mono uppercase text-[#dfb56c] font-bold flex items-center gap-1.5">
+                              <Upload className="w-3.5 h-3.5 text-[#dfb56c]" />
+                              <span>Upload Banner Image File (PC / Phone)</span>
+                            </span>
+                            {isUploadingBannerImage && (
+                              <span className="text-[11px] font-mono text-amber-300 animate-pulse flex items-center gap-1">
+                                <RefreshCw className="w-3 h-3 animate-spin" /> Processing Banner...
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex flex-col sm:flex-row items-center gap-3">
+                            <label className="w-full sm:w-auto px-4 py-2 rounded bg-gradient-to-r from-[#540d18] to-[#3a0910] hover:from-[#6b111f] hover:to-[#4d0c15] border border-[#dfb56c] text-[#f7e2a9] text-xs font-mono font-bold flex items-center justify-center gap-2 cursor-pointer transition-all shadow hover:scale-[1.02]">
+                              <Upload className="w-4 h-4 text-[#dfb56c]" />
+                              <span>Choose Banner Graphic File</span>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                onChange={handleBannerImageFileChange}
+                                disabled={isUploadingBannerImage}
+                                className="hidden"
+                              />
+                            </label>
+                            <span className="text-[11px] text-[#a89f91] font-sinhala">
+                              Landscape/wide format නිර්දේශිතයි (16:4 හෝ 16:5 අනුපාතය)
+                            </span>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-mono uppercase text-[#dfb56c] mb-1 font-bold">
+                            Or Paste Banner Image URL
+                          </label>
+                          <input
+                            type="url"
+                            value={bannerImageUrl}
+                            onChange={(e) => setBannerImageUrl(e.target.value)}
+                            placeholder="https://images.unsplash.com/... or paste image URL"
+                            className="w-full px-3 py-2 bg-black border border-white/15 rounded text-xs text-white font-mono focus:border-[#dfb56c] outline-none"
+                          />
+                        </div>
+
+                        {/* Banner Image Preview */}
+                        {bannerImageUrl && (
+                          <div className="relative rounded overflow-hidden h-28 bg-black border border-[#dfb56c]/40">
+                            <img
+                              src={bannerImageUrl}
+                              alt="Banner Graphic Preview"
+                              className="w-full h-full object-cover"
+                            />
+                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center text-xs font-mono text-[#dfb56c] font-bold">
+                              Preview: Full-width Banner Graphic
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Add Banner Button */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (bannerType === 'image' && !bannerImageUrl.trim()) {
+                          showToast('Please upload or enter a banner image URL!');
+                          return;
+                        }
+                        if (bannerType === 'graphic' && !bannerTitle.trim()) {
+                          showToast('Please enter a banner headline!');
+                          return;
+                        }
+
+                        const current = editingCampaign.sectionBanners || [];
+                        const newBanner: CampaignSectionBanner = {
+                          id: `banner-${Date.now()}-${current.length + 1}`,
+                          position: bannerPosition,
+                          bannerType: bannerType,
+                          imageUrl: bannerType === 'image' ? bannerImageUrl.trim() : undefined,
+                          title: bannerType === 'graphic' ? bannerTitle.trim() : undefined,
+                          titleSinhala: bannerType === 'graphic' ? bannerTitleSinhala.trim() || undefined : undefined,
+                          subtitle: bannerType === 'graphic' ? bannerSubtitle.trim() || undefined : undefined,
+                          subtitleSinhala: bannerType === 'graphic' ? bannerSubtitleSinhala.trim() || undefined : undefined,
+                          badge: bannerType === 'graphic' ? bannerBadge.trim() || undefined : undefined,
+                          buttonText: bannerButtonText.trim() || 'Claim Offer Now',
+                          buttonTextSinhala: bannerButtonTextSinhala.trim() || 'දැන්ම ලියාපදිංචි වන්න',
+                          buttonLink: bannerButtonLink.trim() || '#register-form',
+                          bgColor: bannerBgColor,
+                          isActive: true,
+                          order: current.length + 1,
+                        };
+
+                        setEditingCampaign({
+                          ...editingCampaign,
+                          sectionBanners: [...current, newBanner],
+                        });
+                        showToast(`Web banner added at position "${bannerPosition}"! Click "Save Campaign" below to save.`);
+                      }}
+                      className="w-full py-2.5 rounded bg-gradient-to-r from-[#dfb56c] to-[#c99a45] hover:brightness-110 text-black font-mono font-bold text-xs uppercase flex items-center justify-center gap-2 cursor-pointer shadow-lg transition-all"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Add Section Web Banner / වෙබ් බැනරය එක් කරන්න</span>
+                    </button>
+                  </div>
+
+                  {/* Existing Section Banners List */}
+                  <div className="space-y-3 pt-2">
+                    <h5 className="text-xs font-mono uppercase text-[#dfb56c] font-bold flex items-center justify-between">
+                      <span>Configured Section Banners ({editingCampaign.sectionBanners?.length || 0})</span>
+                      <span className="text-[10px] text-zinc-400 font-normal">Active banners display between page sections</span>
+                    </h5>
+
+                    {(!editingCampaign.sectionBanners || editingCampaign.sectionBanners.length === 0) ? (
+                      <div className="p-6 rounded-lg border border-dashed border-white/10 text-center text-xs text-zinc-500 font-mono">
+                        No inter-section web banners configured yet. Add announcement or graphic banners above to break up sections.
+                      </div>
+                    ) : (
+                      <div className="space-y-2.5">
+                        {editingCampaign.sectionBanners.map((bn, bIdx) => {
+                          const posLabels: Record<string, string> = {
+                            after_hero: 'Below Urgency Bar (Above Form)',
+                            after_form: 'Below Registration Form',
+                            after_about: 'Below About Course Points',
+                            after_posts: 'Below Promotional Posts',
+                            after_gallery: 'Below Student Gallery',
+                            after_certificate: 'Below Diploma Certificate',
+                            after_reviews: 'Below Reviews',
+                          };
+
+                          return (
+                            <div
+                              key={bn.id || bIdx}
+                              className={`p-3.5 rounded-lg border transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-md ${
+                                bn.isActive !== false
+                                  ? 'bg-black/80 border-[#dfb56c]/40'
+                                  : 'bg-black/40 border-white/10 opacity-60'
+                              }`}
+                            >
+                              <div className="flex items-start sm:items-center gap-3 flex-1 min-w-0">
+                                <span className="w-8 h-8 rounded bg-[#1c1013] border border-[#dfb56c]/50 text-[#dfb56c] flex items-center justify-center font-mono font-bold text-xs shrink-0">
+                                  #{bIdx + 1}
+                                </span>
+
+                                <div className="space-y-1 min-w-0 flex-1">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="px-2 py-0.5 rounded bg-[#38070e] text-[#dfb56c] border border-[#dfb56c]/30 text-[10px] font-mono font-bold">
+                                      📍 {posLabels[bn.position] || bn.position}
+                                    </span>
+                                    <span className="px-2 py-0.5 rounded bg-zinc-900 text-zinc-300 border border-white/10 text-[10px] font-mono">
+                                      {bn.bannerType === 'graphic' ? '🎨 Graphic Announcement' : '🖼️ Image Banner'}
+                                    </span>
+                                    {bn.isActive !== false ? (
+                                      <span className="text-[10px] font-mono text-emerald-400 flex items-center gap-1">
+                                        <CheckCircle2 className="w-3 h-3 text-emerald-400" /> Active
+                                      </span>
+                                    ) : (
+                                      <span className="text-[10px] font-mono text-zinc-500">
+                                        Inactive (Hidden)
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  {bn.bannerType === 'graphic' ? (
+                                    <div>
+                                      <div className="text-xs font-bold text-white truncate">
+                                        {bn.title || 'Untitled Banner'}
+                                      </div>
+                                      {bn.titleSinhala && (
+                                        <div className="text-xs text-[#dfb56c] font-sinhala truncate">
+                                          {bn.titleSinhala}
+                                        </div>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-center gap-2">
+                                      {bn.imageUrl && (
+                                        <img
+                                          src={bn.imageUrl}
+                                          alt="Banner"
+                                          className="w-16 h-8 object-cover rounded border border-white/10"
+                                        />
+                                      )}
+                                      <span className="text-xs text-zinc-300 font-mono truncate">
+                                        {bn.imageUrl}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const banners = [...(editingCampaign.sectionBanners || [])];
+                                    banners[bIdx] = {
+                                      ...banners[bIdx],
+                                      isActive: bn.isActive === false ? true : false,
+                                    };
+                                    setEditingCampaign({ ...editingCampaign, sectionBanners: banners });
+                                    showToast(`Banner ${bn.isActive === false ? 'activated' : 'deactivated'}`);
+                                  }}
+                                  className={`px-2.5 py-1 rounded text-xs font-mono border cursor-pointer ${
+                                    bn.isActive !== false
+                                      ? 'bg-emerald-950/60 border-emerald-500/40 text-emerald-300 hover:bg-emerald-900/60'
+                                      : 'bg-zinc-900 border-zinc-700 text-zinc-400 hover:text-white'
+                                  }`}
+                                >
+                                  {bn.isActive !== false ? 'Active' : 'Hidden'}
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const updated = (editingCampaign.sectionBanners || []).filter((_, i) => i !== bIdx);
+                                    setEditingCampaign({ ...editingCampaign, sectionBanners: updated });
+                                    showToast('Banner removed');
+                                  }}
+                                  className="p-1.5 rounded text-red-400 hover:text-red-200 hover:bg-red-950/60 cursor-pointer"
+                                  title="Delete banner"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 5: VIDEOS */}
               {campaignEditorTab === 'videos' && (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">

@@ -1,5 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { CampaignPage, CampaignLead, CourseItem, CampaignCoursePoint, CampaignGalleryImage } from '../../types';
+import {
+  CampaignPage,
+  CampaignLead,
+  CourseItem,
+  CampaignCoursePoint,
+  CampaignGalleryImage,
+  CampaignPostImage,
+  CampaignSectionBanner,
+  CampaignBannerPosition,
+} from '../../types';
 import { useData } from '../../context/DataContext';
 import { useLanguage } from '../../context/LanguageContext';
 import {
@@ -32,6 +41,9 @@ import {
   Image as ImageIcon,
   Maximize2,
   X,
+  ZoomIn,
+  ZoomOut,
+  RotateCcw,
 } from 'lucide-react';
 
 // YouTube URL parser
@@ -71,7 +83,14 @@ export function FBCampaignLandingPage({
   // Active playing video state
   const [activeVideoEmbedId, setActiveVideoEmbedId] = useState<string | null>(null);
   const [activeReviewVideoId, setActiveReviewVideoId] = useState<string | null>(null);
-  const [selectedGalleryImage, setSelectedGalleryImage] = useState<CampaignGalleryImage | null>(null);
+  const [selectedLightboxImage, setSelectedLightboxImage] = useState<{
+    imageUrl: string;
+    caption?: string;
+    captionSinhala?: string;
+    title?: string;
+    tag?: string;
+  } | null>(null);
+  const [lightboxZoom, setLightboxZoom] = useState<number>(1);
 
   // Step 2 Student Form state
   const [fullName, setFullName] = useState('');
@@ -287,6 +306,105 @@ export function FBCampaignLandingPage({
       ? campaign.certificateDescriptionSinhala
       : campaign.certificateDescription || 'Upon successful completion of the course and practical atelier projects, graduates receive our official sealed and verified diploma credential recognized for professional boutique startup and apparel industry careers.';
 
+  // Helper to render web banners configured for a specific position
+  const renderSectionBanners = (pos: CampaignBannerPosition) => {
+    const banners = (campaign.sectionBanners || []).filter(
+      (b) => b.position === pos && b.isActive !== false
+    );
+    if (!banners.length) return null;
+
+    return (
+      <div className="space-y-4 my-3">
+        {banners.map((b) => {
+          const bannerTitle = isSinhala && b.titleSinhala ? b.titleSinhala : b.title;
+          const bannerSub = isSinhala && b.subtitleSinhala ? b.subtitleSinhala : b.subtitle;
+          const bannerBtn = isSinhala && b.buttonTextSinhala ? b.buttonTextSinhala : b.buttonText;
+
+          if (b.bannerType === 'image' && b.imageUrl) {
+            return (
+              <div
+                key={b.id}
+                className="rounded-2xl overflow-hidden border-2 border-[#dfb56c]/50 shadow-2xl group cursor-pointer transition-all hover:scale-[1.01] bg-black"
+                onClick={() => {
+                  if (b.buttonLink?.startsWith('#')) {
+                    const el = document.querySelector(b.buttonLink);
+                    if (el) el.scrollIntoView({ behavior: 'smooth' });
+                    else scrollToForm();
+                  } else if (b.buttonLink) {
+                    window.open(b.buttonLink, '_blank');
+                  } else {
+                    setSelectedLightboxImage({
+                      imageUrl: b.imageUrl!,
+                      title: bannerTitle || 'Official Promotional Web Banner',
+                      caption: bannerSub,
+                      tag: b.badge || 'Banner',
+                    });
+                  }
+                }}
+              >
+                <img
+                  src={b.imageUrl}
+                  alt={bannerTitle || 'Web Banner'}
+                  className="w-full h-auto object-cover"
+                />
+              </div>
+            );
+          }
+
+          // Graphic Announcement Banner
+          return (
+            <div
+              key={b.id}
+              className={`p-4 sm:p-6 rounded-2xl bg-gradient-to-r ${
+                b.bgColor || 'from-[#540d18] via-[#38070e] to-[#1c1013]'
+              } border-2 border-[#dfb56c]/70 shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-4`}
+            >
+              <div className="space-y-1.5 text-center sm:text-left flex-1">
+                {b.badge && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#dfb56c] text-black uppercase tracking-wider">
+                    <Sparkles className="w-3 h-3 text-black" />
+                    <span>{b.badge}</span>
+                  </span>
+                )}
+                {bannerTitle && (
+                  <h3 className="text-base sm:text-xl font-editorial font-bold text-white leading-snug">
+                    {bannerTitle}
+                  </h3>
+                )}
+                {bannerSub && (
+                  <p className="text-xs sm:text-sm text-[#e6ded3] font-sinhala leading-relaxed">
+                    {bannerSub}
+                  </p>
+                )}
+              </div>
+
+              {bannerBtn && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (b.buttonLink?.startsWith('#')) {
+                      const el = document.querySelector(b.buttonLink);
+                      if (el) el.scrollIntoView({ behavior: 'smooth' });
+                      else scrollToForm();
+                    } else if (b.buttonLink) {
+                      window.open(b.buttonLink, '_blank');
+                    } else {
+                      scrollToForm();
+                    }
+                  }}
+                  className="px-5 py-2.5 rounded bg-gradient-to-r from-[#dfb56c] to-[#c99a45] hover:brightness-110 text-black font-bold text-xs uppercase tracking-wider shadow-lg flex items-center gap-1.5 shrink-0 cursor-pointer"
+                >
+                  <span>{bannerBtn}</span>
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-[#090708] text-[#f7f3eb] font-sans selection:bg-[#dfb56c] selection:text-black pb-28 relative">
       {/* Top Floating Mini Header */}
@@ -352,164 +470,169 @@ export function FBCampaignLandingPage({
       {/* Main Campaign Container */}
       <main className="max-w-4xl mx-auto px-4 pt-6 space-y-8">
         {/* ========================================================= */}
-        {/* HERO BANNER & URGENCY SECTION                             */}
-        {/* ========================================================= */}
-        <section className="relative overflow-hidden rounded-xl bg-gradient-to-b from-[#1c1013] via-[#140b0e] to-[#0d0709] border border-[#dfb56c]/50 p-5 sm:p-8 shadow-2xl text-center space-y-4">
-          {/* Subtle Ambient Glow */}
-          <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-96 h-96 bg-[#dfb56c]/10 rounded-full blur-3xl pointer-events-none" />
-
-          {/* Badge */}
-          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#540d18] border border-[#dfb56c] shadow-lg animate-pulse">
-            <Flame className="w-4 h-4 text-[#dfb56c]" />
-            <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#f7e2a9]">
-              {displayBadge}
-            </span>
-          </div>
-
-          {/* Main Campaign Headline */}
-          <h1 className="text-2xl sm:text-4xl font-editorial font-bold text-white tracking-wide leading-tight max-w-2xl mx-auto">
-            {displayTitle}
-          </h1>
-
-          {/* Intake & Spots Counter */}
-          <div className="flex flex-wrap items-center justify-center gap-2.5 text-xs font-mono">
-            <span className="px-3 py-1 rounded bg-black/60 border border-white/10 text-[#d8d0c5] flex items-center gap-1.5">
-              <Calendar className="w-3.5 h-3.5 text-[#dfb56c]" />
-              <span>{displayIntake}</span>
-            </span>
-            <span className="px-3 py-1 rounded bg-[#38070e] border border-red-500/50 text-red-300 font-bold flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-red-400 animate-ping" />
-              <span>ONLY {campaign.spotsLeft ?? 6} SEATS REMAINING</span>
-            </span>
-          </div>
-
-          {/* Countdown Urgency Timer */}
-          <div className="py-2.5 px-4 rounded-lg bg-black/70 border border-[#dfb56c]/30 inline-block max-w-sm mx-auto">
-            <span className="text-[10px] uppercase font-mono tracking-widest text-[#dfb56c] block mb-1.5 font-bold">
-              ⏰ Special Facebook Boost Discount Expires In:
-            </span>
-            <div className="flex items-center justify-center gap-3 font-mono text-center">
-              <div className="bg-[#1b1013] border border-white/10 px-3 py-1.5 rounded">
-                <span className="text-lg font-bold text-white block">
-                  {String(timeLeft.hours).padStart(2, '0')}
-                </span>
-                <span className="text-[9px] text-[#a89f91] block uppercase">Hours</span>
-              </div>
-              <span className="text-lg font-bold text-[#dfb56c]">:</span>
-              <div className="bg-[#1b1013] border border-white/10 px-3 py-1.5 rounded">
-                <span className="text-lg font-bold text-white block">
-                  {String(timeLeft.minutes).padStart(2, '0')}
-                </span>
-                <span className="text-[9px] text-[#a89f91] block uppercase">Mins</span>
-              </div>
-              <span className="text-lg font-bold text-[#dfb56c]">:</span>
-              <div className="bg-[#1b1013] border border-white/10 px-3 py-1.5 rounded">
-                <span className="text-lg font-bold text-white block">
-                  {String(timeLeft.seconds).padStart(2, '0')}
-                </span>
-                <span className="text-[9px] text-[#a89f91] block uppercase">Secs</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Pricing Highlight */}
-          <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-4">
-            <div className="flex items-baseline gap-2.5">
-              <span className="text-xs text-[#a89f91] line-through font-mono">
-                {campaign.currency || 'LKR'} {(campaign.regularPrice ?? 15000).toLocaleString()}
-              </span>
-              <span className="text-2xl sm:text-3xl font-mono font-bold text-[#dfb56c]">
-                {campaign.currency || 'LKR'} {(campaign.discountPrice ?? 7500).toLocaleString()}
-              </span>
-              <span className="text-xs text-white/70 font-mono">/ Month (50% Off)</span>
-            </div>
-
-            <button
-              onClick={scrollToForm}
-              className="w-full sm:w-auto px-7 py-3 bg-gradient-to-r from-[#dfb56c] via-[#f7e2a9] to-[#dfb56c] text-black font-bold text-xs uppercase tracking-wider rounded-sm shadow-xl hover:brightness-110 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <Sparkles className="w-4 h-4 text-black" />
-              <span>{isSinhala ? 'දැන්ම ආසනය වෙන්කරගන්න (Step 2)' : 'Reserve Your Seat (Step 2)'}</span>
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
-
-          {/* Important Milestones & Date Lines Strip */}
-          {(campaign.registrationDeadline || campaign.batchStartDate || (campaign.dateLines && campaign.dateLines.length > 0)) && (
-            <div className="pt-3 border-t border-white/10 flex flex-wrap items-center justify-center gap-2 text-xs font-mono">
-              {campaign.registrationDeadline && (
-                <div className="px-3 py-1.5 rounded bg-[#38070e] border border-red-500/60 text-red-200 flex items-center gap-1.5 shadow">
-                  <Clock className="w-3.5 h-3.5 text-red-400" />
-                  <span>
-                    {isSinhala ? 'ලියාපදිංචිය අවසන් දිනය: ' : 'Registration Deadline: '}
-                    <strong className="text-white font-bold">{campaign.registrationDeadline}</strong>
-                  </span>
-                </div>
-              )}
-              {campaign.batchStartDate && (
-                <div className="px-3 py-1.5 rounded bg-black/70 border border-[#dfb56c]/40 text-[#f7e2a9] flex items-center gap-1.5">
-                  <Calendar className="w-3.5 h-3.5 text-[#dfb56c]" />
-                  <span>
-                    {isSinhala ? 'පන්ති ආරම්භය: ' : 'Batch Starts: '}
-                    <strong className="text-white font-bold">{campaign.batchStartDate}</strong>
-                  </span>
-                </div>
-              )}
-              {campaign.dateLines && campaign.dateLines.map((dl) => (
-                <div
-                  key={dl.id}
-                  className={`px-3 py-1.5 rounded border flex items-center gap-1.5 ${
-                    dl.highlight
-                      ? 'bg-[#540d18] border-[#dfb56c] text-[#f7e2a9] font-bold shadow'
-                      : 'bg-black/60 border-white/10 text-[#d5cfc4]'
-                  }`}
-                >
-                  <Sparkles className="w-3 h-3 text-[#dfb56c]" />
-                  <span>
-                    {isSinhala && dl.labelSinhala ? dl.labelSinhala : dl.label}:{' '}
-                    <strong className="text-white font-bold">{dl.date}</strong>
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-
-        {/* ========================================================= */}
-        {/* COVER PAGE HERO IMAGE SHOWCASE                             */}
+        {/* TOP COVER HERO IMAGE SHOWCASE (IHALATAMA / AT VERY TOP)   */}
         {/* ========================================================= */}
         {campaign.coverImageUrl && (
-          <section className="relative rounded-2xl overflow-hidden border-2 border-[#dfb56c]/40 shadow-2xl group">
-            <div className="relative aspect-[21/9] sm:aspect-[2.4/1] w-full bg-black overflow-hidden">
+          <section className="relative rounded-2xl overflow-hidden border-2 border-[#dfb56c]/70 shadow-2xl group bg-black">
+            <div
+              onClick={() =>
+                setSelectedLightboxImage({
+                  imageUrl: campaign.coverImageUrl!,
+                  title: displayTitle,
+                  caption: displayCoverCaption,
+                  tag: 'Official Atelier & Academy Visuals',
+                })
+              }
+              className="relative aspect-[21/9] sm:aspect-[2.4/1] w-full bg-black overflow-hidden cursor-pointer"
+              title="Click to view full clear image in HD Lightbox"
+            >
+              {/* 100% Full Clear Crystal Image without dimming filters */}
               <img
                 src={campaign.coverImageUrl}
                 alt={displayTitle}
-                className="w-full h-full object-cover filter brightness-95 group-hover:scale-102 transition-transform duration-700"
+                className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-700"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#0c0709] via-black/30 to-black/20" />
 
-              {/* Badge & Caption Overlay */}
-              <div className="absolute bottom-4 left-4 right-4 flex flex-col sm:flex-row sm:items-end justify-between gap-2">
+              {/* Minimal bottom readable strip only - NO full dark filter */}
+              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent p-3 sm:p-5 flex flex-col sm:flex-row sm:items-end justify-between gap-2">
                 <div className="space-y-1">
                   <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#540d18]/90 backdrop-blur-md border border-[#dfb56c] text-[#f7e2a9] text-[10px] font-mono uppercase tracking-wider font-bold shadow-lg">
                     <Sparkles className="w-3.5 h-3.5 text-[#dfb56c]" />
-                    <span>Official Atelier & Academy Visuals</span>
+                    <span>Official Atelier &amp; Academy Visuals • Click to View Full HD</span>
                   </span>
                   {displayCoverCaption && (
-                    <p className="text-xs sm:text-sm text-white/95 font-editorial font-semibold drop-shadow-md">
+                    <p className="text-xs sm:text-sm text-white font-editorial font-semibold drop-shadow-md">
                       {displayCoverCaption}
                     </p>
                   )}
                 </div>
 
-                <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/70 backdrop-blur-md border border-white/20 text-[10px] font-mono text-[#dfb56c]">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Verified Ceylon Style Studio Masterclass</span>
+                <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/80 backdrop-blur-md border border-[#dfb56c]/50 text-[10px] font-mono text-[#dfb56c]">
+                  <Maximize2 className="w-3 h-3 text-[#dfb56c]" />
+                  <span>Tap to Enlarge (HD)</span>
                 </div>
               </div>
             </div>
           </section>
         )}
+
+        {/* ========================================================= */}
+        {/* COMPACT & SLEEK COUNTDOWN URGENCY & PRICING BAR           */}
+        {/* ========================================================= */}
+        <section className="relative overflow-hidden rounded-xl bg-gradient-to-r from-[#1c1013] via-[#140b0e] to-[#1c1013] border border-[#dfb56c]/60 p-4 sm:p-5 shadow-xl text-center space-y-3">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+            {/* Title & Badge */}
+            <div className="text-center sm:text-left space-y-1">
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#540d18] border border-[#dfb56c] text-[#f7e2a9] text-[10px] font-mono font-bold uppercase tracking-wider">
+                <Flame className="w-3.5 h-3.5 text-[#dfb56c]" />
+                <span>{displayBadge}</span>
+              </div>
+              <h1 className="text-lg sm:text-2xl font-editorial font-bold text-white tracking-wide leading-tight">
+                {displayTitle}
+              </h1>
+            </div>
+
+            {/* Compact Live Countdown Urgency Timer */}
+            <div className="py-1.5 px-3 rounded-lg bg-black/80 border border-[#dfb56c]/40 shrink-0">
+              <span className="text-[9px] uppercase font-mono tracking-widest text-[#dfb56c] block mb-1 font-bold">
+                ⏰ Discount Expires In:
+              </span>
+              <div className="flex items-center justify-center gap-2 font-mono text-center">
+                <div className="bg-[#1b1013] border border-white/10 px-2 py-0.5 rounded">
+                  <span className="text-sm font-bold text-white block">
+                    {String(timeLeft.hours).padStart(2, '0')}
+                  </span>
+                  <span className="text-[8px] text-[#a89f91] block uppercase">Hours</span>
+                </div>
+                <span className="text-sm font-bold text-[#dfb56c]">:</span>
+                <div className="bg-[#1b1013] border border-white/10 px-2 py-0.5 rounded">
+                  <span className="text-sm font-bold text-white block">
+                    {String(timeLeft.minutes).padStart(2, '0')}
+                  </span>
+                  <span className="text-[8px] text-[#a89f91] block uppercase">Mins</span>
+                </div>
+                <span className="text-sm font-bold text-[#dfb56c]">:</span>
+                <div className="bg-[#1b1013] border border-white/10 px-2 py-0.5 rounded">
+                  <span className="text-sm font-bold text-white block">
+                    {String(timeLeft.seconds).padStart(2, '0')}
+                  </span>
+                  <span className="text-[8px] text-[#a89f91] block uppercase">Secs</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Pricing & Quick CTA Row */}
+          <div className="pt-2 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 text-xs font-mono">
+              <span className="text-[#a89f91] line-through">
+                {campaign.currency || 'LKR'} {(campaign.regularPrice ?? 15000).toLocaleString()}
+              </span>
+              <span className="text-xl sm:text-2xl font-bold text-[#dfb56c]">
+                {campaign.currency || 'LKR'} {(campaign.discountPrice ?? 7500).toLocaleString()}
+              </span>
+              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-600 text-white">
+                50% OFF
+              </span>
+              <span className="px-2 py-0.5 rounded bg-[#38070e] text-red-300 border border-red-500/40 text-[10px]">
+                ONLY {campaign.spotsLeft ?? 6} SEATS REMAINING
+              </span>
+            </div>
+
+            <button
+              onClick={scrollToForm}
+              className="w-full sm:w-auto px-6 py-2.5 bg-gradient-to-r from-[#dfb56c] via-[#f7e2a9] to-[#dfb56c] text-black font-bold text-xs uppercase tracking-wider rounded-sm shadow-xl hover:brightness-110 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer shrink-0"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-black" />
+              <span>{isSinhala ? 'දැන්ම ආසනය වෙන්කරගන්න (Step 2)' : 'Reserve Your Seat (Step 2)'}</span>
+              <ChevronRight className="w-4 h-4 text-black" />
+            </button>
+          </div>
+
+          {/* Date Lines Strip */}
+          {(campaign.registrationDeadline || campaign.batchStartDate || (campaign.dateLines && campaign.dateLines.length > 0)) && (
+            <div className="pt-2 border-t border-white/10 flex flex-wrap items-center justify-center gap-1.5 text-[11px] font-mono">
+              {campaign.registrationDeadline && (
+                <div className="px-2.5 py-1 rounded bg-[#38070e] border border-red-500/50 text-red-200 flex items-center gap-1 shadow">
+                  <Clock className="w-3 h-3 text-red-400" />
+                  <span>
+                    {isSinhala ? 'ලියාපදිංචිය අවසන් දිනය: ' : 'Deadline: '}
+                    <strong className="text-white font-bold">{campaign.registrationDeadline}</strong>
+                  </span>
+                </div>
+              )}
+              {campaign.batchStartDate && (
+                <div className="px-2.5 py-1 rounded bg-black/70 border border-[#dfb56c]/40 text-[#f7e2a9] flex items-center gap-1">
+                  <Calendar className="w-3 h-3 text-[#dfb56c]" />
+                  <span>
+                    {isSinhala ? 'පන්ති ආරම්භය: ' : 'Starts: '}
+                    <strong className="text-white font-bold">{campaign.batchStartDate}</strong>
+                  </span>
+                </div>
+              )}
+              {campaign.dateLines &&
+                campaign.dateLines.map((dl) => (
+                  <div
+                    key={dl.id}
+                    className={`px-2.5 py-1 rounded border flex items-center gap-1 ${
+                      dl.highlight
+                        ? 'bg-[#540d18] border-[#dfb56c] text-[#f7e2a9] font-bold shadow'
+                        : 'bg-black/60 border-white/10 text-[#d5cfc4]'
+                    }`}
+                  >
+                    <Sparkles className="w-3 h-3 text-[#dfb56c]" />
+                    <span>
+                      {isSinhala && dl.labelSinhala ? dl.labelSinhala : dl.label}:{' '}
+                      <strong className="text-white font-bold">{dl.date}</strong>
+                    </span>
+                  </div>
+                ))}
+            </div>
+          )}
+        </section>
+
+        {/* WEB BANNER: AFTER HERO */}
+        {renderSectionBanners('after_hero')}
 
         {/* ========================================================= */}
         {/* STEP 2: STUDENT DETAILS REGISTRATION FORM (MOVED TO TOP)  */}
@@ -911,6 +1034,9 @@ export function FBCampaignLandingPage({
           )}
         </section>
 
+        {/* WEB BANNER: AFTER FORM */}
+        {renderSectionBanners('after_form')}
+
         {/* ========================================================= */}
         {/* ABOUT THIS COURSE & ATTRACTIVE POINTS WITH SYMBOLS         */}
         {/* ========================================================= */}
@@ -992,6 +1118,88 @@ export function FBCampaignLandingPage({
           )}
         </section>
 
+        {/* WEB BANNER: AFTER ABOUT COURSE */}
+        {renderSectionBanners('after_about')}
+
+        {/* ========================================================= */}
+        {/* PROMOTIONAL POST IMAGES & AD CREATIVES SHOWCASE           */}
+        {/* ========================================================= */}
+        {campaign.postImages && campaign.postImages.length > 0 && (
+          <section className="space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2 border-b border-white/10 pb-3">
+              <div>
+                <span className="text-[10px] font-mono text-[#dfb56c] uppercase tracking-widest block font-bold">
+                  Official Promotional Flyers &amp; Announcements
+                </span>
+                <h2 className="text-xl sm:text-2xl font-editorial font-bold text-white flex items-center gap-2">
+                  <Flame className="w-5 h-5 text-[#dfb56c]" />
+                  <span>{isSinhala ? 'නිල ප්‍රවර්ධන දැන්වීම් සහ විස්තර පත්‍රිකා' : 'Promotional Posts & Ad Flyers'}</span>
+                </h2>
+              </div>
+              <span className="text-[10px] font-mono px-2.5 py-1 rounded bg-[#38070e] text-[#dfb56c] border border-[#dfb56c]/30 self-start sm:self-auto">
+                {campaign.postImages.length} Official Posts • Tap to Enlarge
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {campaign.postImages.map((post) => {
+                const postTitle = isSinhala && post.titleSinhala ? post.titleSinhala : post.title;
+                const postCaption = isSinhala && post.captionSinhala ? post.captionSinhala : post.caption;
+
+                return (
+                  <div
+                    key={post.id}
+                    onClick={() =>
+                      setSelectedLightboxImage({
+                        imageUrl: post.imageUrl,
+                        title: postTitle,
+                        caption: postCaption,
+                        tag: post.badge || 'Promo Post',
+                      })
+                    }
+                    className="group rounded-xl overflow-hidden bg-[#140b0e] border border-white/15 hover:border-[#dfb56c] transition-all cursor-pointer shadow-xl flex flex-col justify-between"
+                  >
+                    <div className="relative aspect-[4/3] w-full bg-black overflow-hidden">
+                      {/* 100% Full Clear Crystal Image without filters */}
+                      <img
+                        src={post.imageUrl}
+                        alt={postTitle || 'Promotional Post'}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
+                      {post.badge && (
+                        <span className="absolute top-2.5 left-2.5 px-2.5 py-0.5 rounded text-[10px] font-mono font-bold bg-[#540d18]/90 text-[#f7e2a9] border border-[#dfb56c] shadow">
+                          {post.badge}
+                        </span>
+                      )}
+                      <div className="absolute top-2.5 right-2.5 w-7 h-7 rounded-full bg-black/70 border border-white/20 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Maximize2 className="w-3.5 h-3.5 text-[#dfb56c]" />
+                      </div>
+                    </div>
+
+                    {(postTitle || postCaption) && (
+                      <div className="p-3.5 space-y-1 bg-[#120a0d] border-t border-white/5">
+                        {postTitle && (
+                          <h4 className="text-xs sm:text-sm font-bold text-white line-clamp-1 font-editorial">
+                            {postTitle}
+                          </h4>
+                        )}
+                        {postCaption && (
+                          <p className="text-[11px] text-[#c5beb3] font-sinhala line-clamp-2 leading-relaxed">
+                            {postCaption}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        {/* WEB BANNER: AFTER POSTS */}
+        {renderSectionBanners('after_posts')}
+
         {/* ========================================================= */}
         {/* ATELIER & STUDENT CREATIONS IMAGE GALLERY                 */}
         {/* ========================================================= */}
@@ -1000,7 +1208,7 @@ export function FBCampaignLandingPage({
             <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2 border-b border-white/10 pb-3">
               <div>
                 <span className="text-[10px] font-mono text-[#dfb56c] uppercase tracking-widest block font-bold">
-                  Behind The Scenes & Atelier Craft
+                  Behind The Scenes &amp; Atelier Craft
                 </span>
                 <h2 className="text-xl sm:text-2xl font-editorial font-bold text-white flex items-center gap-2">
                   <ImageIcon className="w-5 h-5 text-[#dfb56c]" />
@@ -1008,7 +1216,7 @@ export function FBCampaignLandingPage({
                 </h2>
               </div>
               <span className="text-[10px] font-mono px-2.5 py-1 rounded bg-[#38070e] text-[#dfb56c] border border-[#dfb56c]/30 self-start sm:self-auto">
-                {campaign.galleryImages.length} High-Res Atelier Photos
+                {campaign.galleryImages.length} High-Res Atelier Photos • Tap to Enlarge
               </span>
             </div>
 
@@ -1018,15 +1226,22 @@ export function FBCampaignLandingPage({
                 return (
                   <div
                     key={img.id}
-                    onClick={() => setSelectedGalleryImage(img)}
-                    className="group relative rounded-xl overflow-hidden bg-black border border-white/10 hover:border-[#dfb56c] transition-all cursor-pointer aspect-square shadow-lg"
+                    onClick={() =>
+                      setSelectedLightboxImage({
+                        imageUrl: img.imageUrl,
+                        caption: caption,
+                        captionSinhala: img.captionSinhala,
+                        tag: img.tag || 'Atelier Visual',
+                      })
+                    }
+                    className="group relative rounded-xl overflow-hidden bg-black border border-white/15 hover:border-[#dfb56c] transition-all cursor-pointer aspect-square shadow-lg"
                   >
+                    {/* 100% Full Clear Image without filters */}
                     <img
                       src={img.imageUrl}
                       alt={caption || 'Atelier creation'}
-                      className="w-full h-full object-cover filter brightness-90 group-hover:scale-108 group-hover:brightness-105 transition-all duration-500"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-all duration-500"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent opacity-80 group-hover:opacity-100 transition-opacity" />
 
                     {/* Tag */}
                     {img.tag && (
@@ -1035,10 +1250,10 @@ export function FBCampaignLandingPage({
                       </span>
                     )}
 
-                    {/* Caption & Zoom Icon */}
-                    <div className="absolute bottom-2 left-2 right-2 flex items-end justify-between gap-1">
+                    {/* Minimal bottom readable strip only - NO full dark filter */}
+                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent p-2.5 flex items-end justify-between gap-1">
                       {caption && (
-                        <p className="text-[11px] text-white/95 font-sinhala line-clamp-2 leading-tight">
+                        <p className="text-[11px] text-white font-sinhala line-clamp-2 leading-tight">
                           {caption}
                         </p>
                       )}
@@ -1053,6 +1268,9 @@ export function FBCampaignLandingPage({
           </section>
         )}
 
+        {/* WEB BANNER: AFTER GALLERY */}
+        {renderSectionBanners('after_gallery')}
+
         {/* ========================================================= */}
         {/* RECOGNIZED DIPLOMA CERTIFICATE SHOWCASE                    */}
         {/* ========================================================= */}
@@ -1062,27 +1280,28 @@ export function FBCampaignLandingPage({
               {/* Certificate Image Frame */}
               <div
                 onClick={() =>
-                  setSelectedGalleryImage({
-                    id: 'cert-preview',
+                  setSelectedLightboxImage({
                     imageUrl: campaign.certificateImageUrl!,
-                    caption: displayCertHeading,
-                    tag: 'Official Certificate',
+                    title: displayCertHeading,
+                    caption: displayCertDesc,
+                    tag: displayCertIssuer,
                   })
                 }
                 className="relative w-full sm:w-72 shrink-0 rounded-xl overflow-hidden border-2 border-[#dfb56c] shadow-2xl group cursor-pointer bg-black"
+                title="Tap to view official certificate in Full HD"
               >
+                {/* 100% Full Clear Image without filters */}
                 <img
                   src={campaign.certificateImageUrl}
                   alt={displayCertHeading}
-                  className="w-full aspect-[4/3] object-cover group-hover:scale-105 transition-transform duration-500 filter brightness-95 group-hover:brightness-105"
+                  className="w-full aspect-[4/3] object-cover group-hover:scale-105 transition-transform duration-500"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
-                <div className="absolute bottom-2.5 left-2.5 right-2.5 flex items-center justify-between">
+                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent p-2.5 flex items-center justify-between">
                   <span className="px-2 py-0.5 rounded text-[9px] font-mono bg-[#540d18] text-[#f7e2a9] border border-[#dfb56c]">
                     Official Seal
                   </span>
                   <span className="text-[10px] font-mono text-[#dfb56c] flex items-center gap-1">
-                    <Maximize2 className="w-3 h-3" /> Tap to Enlarge
+                    <Maximize2 className="w-3 h-3" /> Tap to Enlarge (HD)
                   </span>
                 </div>
               </div>
@@ -1125,6 +1344,9 @@ export function FBCampaignLandingPage({
             </div>
           </section>
         )}
+
+        {/* WEB BANNER: AFTER CERTIFICATE */}
+        {renderSectionBanners('after_certificate')}
 
         {/* ========================================================= */}
         {/* MULTIPLE YOUTUBE VIDEOS WITH CUSTOM HEADINGS              */}
@@ -1378,53 +1600,98 @@ export function FBCampaignLandingPage({
       </main>
 
       {/* ========================================================= */}
-      {/* FULL RESOLUTION GALLERY / CERTIFICATE LIGHTBOX MODAL       */}
+      {/* FULL RESOLUTION CLEAR HD LIGHTBOX MODAL (ZERO FILTERS)    */}
       {/* ========================================================= */}
-      {selectedGalleryImage && (
+      {selectedLightboxImage && (
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 bg-black/95 backdrop-blur-md flex items-center justify-center p-4"
-          onClick={() => setSelectedGalleryImage(null)}
+          className="fixed inset-0 z-50 bg-black/95 backdrop-blur-md flex items-center justify-center p-2 sm:p-5"
+          onClick={() => {
+            setSelectedLightboxImage(null);
+            setLightboxZoom(1);
+          }}
         >
           <div
-            className="relative max-w-3xl w-full max-h-[90vh] bg-[#140b0e] border-2 border-[#dfb56c] rounded-2xl overflow-hidden shadow-2xl flex flex-col animate-in zoom-in-95 duration-200"
+            className="relative max-w-5xl w-full max-h-[94vh] bg-[#0d0709] border-2 border-[#dfb56c]/70 rounded-2xl overflow-hidden shadow-2xl flex flex-col animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="p-3 bg-[#1e1014] border-b border-white/10 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                {selectedGalleryImage.tag && (
-                  <span className="px-2.5 py-0.5 rounded bg-[#540d18] text-[#f7e2a9] text-[10px] font-mono border border-[#dfb56c]">
-                    {selectedGalleryImage.tag}
+            {/* Top Toolbar */}
+            <div className="p-3 bg-[#160b0e] border-b border-white/10 flex items-center justify-between gap-3 shrink-0">
+              <div className="flex items-center gap-2 min-w-0">
+                {selectedLightboxImage.tag && (
+                  <span className="px-2.5 py-0.5 rounded text-[10px] font-mono font-bold bg-[#540d18] text-[#f7e2a9] border border-[#dfb56c]/60 shrink-0">
+                    {selectedLightboxImage.tag}
                   </span>
                 )}
-                <span className="text-xs font-mono text-[#a89f91]">
-                  Ceylon Style Studio Visual Showcase
+                <span className="text-xs sm:text-sm font-editorial font-bold text-white truncate">
+                  {selectedLightboxImage.title || 'Ceylon Style Studio • Full Clear HD Visual'}
                 </span>
               </div>
-              <button
-                type="button"
-                onClick={() => setSelectedGalleryImage(null)}
-                className="w-8 h-8 rounded-full bg-black/60 text-white/80 hover:text-white flex items-center justify-center border border-white/10 hover:border-red-500 transition-all cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
+
+              {/* Zoom & Action Controls */}
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setLightboxZoom((prev) => Math.max(0.75, Number((prev - 0.25).toFixed(2))))}
+                  className="p-1.5 rounded bg-black/70 border border-white/15 text-zinc-300 hover:text-white hover:border-[#dfb56c] cursor-pointer"
+                  title="Zoom Out"
+                >
+                  <ZoomOut className="w-4 h-4" />
+                </button>
+                <span className="text-[10px] font-mono text-[#dfb56c] px-1 font-bold">
+                  {Math.round(lightboxZoom * 100)}%
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setLightboxZoom((prev) => Math.min(3, Number((prev + 0.25).toFixed(2))))}
+                  className="p-1.5 rounded bg-black/70 border border-white/15 text-zinc-300 hover:text-white hover:border-[#dfb56c] cursor-pointer"
+                  title="Zoom In"
+                >
+                  <ZoomIn className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLightboxZoom(1)}
+                  className="p-1.5 rounded bg-black/70 border border-white/15 text-zinc-300 hover:text-white hover:border-[#dfb56c] cursor-pointer"
+                  title="Reset Zoom"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedLightboxImage(null);
+                    setLightboxZoom(1);
+                  }}
+                  className="p-1.5 rounded-full bg-red-950/80 border border-red-500/60 text-red-200 hover:bg-red-900 cursor-pointer ml-1"
+                  title="Close Window"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
             </div>
 
-            <div className="overflow-auto flex-1 flex items-center justify-center bg-black p-2">
+            {/* 100% Full Clear Image without any dimming or filters */}
+            <div className="overflow-auto flex-1 flex items-center justify-center bg-black/95 p-3">
               <img
-                src={selectedGalleryImage.imageUrl}
-                alt={selectedGalleryImage.caption || 'Enlarged photo'}
-                className="max-h-[70vh] w-auto max-w-full object-contain rounded"
+                src={selectedLightboxImage.imageUrl}
+                alt={selectedLightboxImage.caption || 'Full clear enlarged photo'}
+                style={{
+                  transform: `scale(${lightboxZoom})`,
+                  transition: 'transform 0.15s ease-out',
+                }}
+                className="max-h-[75vh] w-auto max-w-full object-contain rounded select-none shadow-2xl"
               />
             </div>
 
-            {(selectedGalleryImage.caption || selectedGalleryImage.captionSinhala) && (
-              <div className="p-4 bg-[#140b0e] border-t border-white/10">
-                <p className="text-xs sm:text-sm text-[#f7f3eb] font-sinhala leading-relaxed text-center">
-                  {isSinhala && selectedGalleryImage.captionSinhala
-                    ? selectedGalleryImage.captionSinhala
-                    : selectedGalleryImage.caption}
+            {/* Caption & Description Footer */}
+            {(selectedLightboxImage.caption || selectedLightboxImage.captionSinhala) && (
+              <div className="p-3.5 bg-[#140b0e] border-t border-white/10 shrink-0">
+                <p className="text-xs sm:text-sm text-[#f7f3eb] font-sinhala leading-relaxed text-center font-medium">
+                  {isSinhala && selectedLightboxImage.captionSinhala
+                    ? selectedLightboxImage.captionSinhala
+                    : selectedLightboxImage.caption}
                 </p>
               </div>
             )}

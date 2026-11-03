@@ -386,6 +386,38 @@ export interface CampaignLeadFollowUp {
   updatedAt?: string;
 }
 
+export interface WhatsAppMessageTemplate {
+  id: string;
+  name: string;
+  nameSinhala?: string;
+  category?: 'lead_crm' | 'general' | 'payment' | 'followup';
+  badge?: string;
+  badgeBg?: string;
+  badgeBorder?: string;
+  badgeText?: string;
+  message: string;
+  description?: string;
+  isDefault?: boolean;
+  order?: number;
+  updatedAt?: string;
+}
+
+export interface BankAccount {
+  id: string;
+  bankName: string; // e.g. 'Commercial Bank of Ceylon', 'Sampath Bank', 'Bank of Ceylon (BOC)', 'Hatton National Bank (HNB)'
+  accountNumber: string; // e.g. '1000548923'
+  accountName: string; // e.g. 'Ceylon Style Studio (Pvt) Ltd'
+  branch: string; // e.g. 'Kurunegala Super Grade'
+  swiftCode?: string;
+  currency?: string; // 'LKR'
+  isDefault?: boolean;
+  isActive?: boolean;
+  notes?: string; // Special instructions for students
+  order?: number;
+  updatedAt?: string;
+}
+
+
 export interface CampaignCoursePoint {
   id: string;
   symbol: string; // e.g. '✨' | '✂️' | '👗' | '💎' | '🏆' | '⭐' | '🧵' | '🎓' | '📐' | '🪡' | '✅' | '💡'
@@ -403,6 +435,44 @@ export interface CampaignGalleryImage {
   tag?: string;
 }
 
+export interface CampaignPostImage {
+  id: string;
+  imageUrl: string;
+  title?: string;
+  titleSinhala?: string;
+  caption?: string;
+  captionSinhala?: string;
+  badge?: string; // e.g. 'Promo Post', 'Ad Creative', 'Syllabus Flyer', 'Student Work'
+  order?: number;
+}
+
+export type CampaignBannerPosition =
+  | 'after_hero'
+  | 'after_form'
+  | 'after_about'
+  | 'after_posts'
+  | 'after_gallery'
+  | 'after_certificate'
+  | 'after_reviews';
+
+export interface CampaignSectionBanner {
+  id: string;
+  position: CampaignBannerPosition;
+  bannerType: 'image' | 'graphic' | 'announcement';
+  imageUrl?: string;
+  title?: string;
+  titleSinhala?: string;
+  subtitle?: string;
+  subtitleSinhala?: string;
+  badge?: string;
+  buttonText?: string;
+  buttonTextSinhala?: string;
+  buttonLink?: string; // e.g. '#campaign-step-2-form'
+  bgColor?: string;
+  isActive?: boolean;
+  order?: number;
+}
+
 export interface CampaignPage {
   id: string;
   slug: string;
@@ -413,6 +483,8 @@ export interface CampaignPage {
   coverImageUrl?: string;
   coverImageCaption?: string;
   coverImageCaptionSinhala?: string;
+  topBannerText?: string;
+  topBannerTextSinhala?: string;
   associatedCourseId?: string;
   associatedCourseTitle?: string;
   aboutHeading?: string;
@@ -426,6 +498,8 @@ export interface CampaignPage {
   pdfResource?: CampaignPdfResource;
   studentReviews: CampaignReviewEmbed[];
   galleryImages?: CampaignGalleryImage[];
+  postImages?: CampaignPostImage[];
+  sectionBanners?: CampaignSectionBanner[];
   certificateImageUrl?: string;
   certificateHeading?: string;
   certificateHeadingSinhala?: string;

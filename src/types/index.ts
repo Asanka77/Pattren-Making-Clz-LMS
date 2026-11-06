@@ -356,7 +356,21 @@ export type CampaignCallOutcome =
   | 'NOT_INTERESTED'
   | 'CONTACTED'
   | 'ENROLLED'
-  | 'CANCELLED';
+  | 'CANCELLED'
+  | string;
+
+export interface CampaignCallOutcomeItem {
+  id: string; // e.g. 'NEW', 'CALL_ANSWERED', 'CALL_NO_ANSWER', or custom code
+  label: string; // English label e.g. 'Call Answered'
+  labelSinhala: string; // Sinhala label e.g. 'ඇමතුමට පිළිතුරු දුන්නේය'
+  badgeBg: string; // Tailwind background class
+  badgeBorder: string; // Tailwind border class
+  badgeText: string; // Tailwind text color class
+  description?: string;
+  isSystem?: boolean;
+  order?: number;
+  updatedAt?: string;
+}
 
 export interface CampaignLeadCallLog {
   id: string;

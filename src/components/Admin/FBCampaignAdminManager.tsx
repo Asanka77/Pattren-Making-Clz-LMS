@@ -22,6 +22,7 @@ import {
   CampaignBannerPosition,
   WhatsAppMessageTemplate,
   BankAccount,
+  CampaignCallOutcomeItem,
 } from '../../types';
 import { useData } from '../../context/DataContext';
 import {
@@ -183,6 +184,19 @@ export const CALL_OUTCOME_CONFIGS: {
   },
 ];
 
+export const OUTCOME_COLOR_PRESETS = [
+  { name: 'Amber / Gold (New / Attention)', bg: 'bg-amber-950/70', border: 'border-amber-500/50', text: 'text-amber-300' },
+  { name: 'Blue / Ocean (Call Answered / Active)', bg: 'bg-blue-950/70', border: 'border-blue-500/50', text: 'text-blue-300' },
+  { name: 'Red / Ruby (No Answer / Alert)', bg: 'bg-red-950/80', border: 'border-red-500/70', text: 'text-red-300' },
+  { name: 'Purple / Violet (Callback / Follow-up)', bg: 'bg-purple-950/70', border: 'border-purple-500/50', text: 'text-purple-300' },
+  { name: 'Cyan / Aqua (Interested / Hot Lead)', bg: 'bg-cyan-950/70', border: 'border-cyan-500/50', text: 'text-cyan-300' },
+  { name: 'Yellow / Sun (Payment Pending / Promised)', bg: 'bg-yellow-950/70', border: 'border-yellow-500/60', text: 'text-yellow-300' },
+  { name: 'Emerald / Green (Registered / Paid Complete)', bg: 'bg-emerald-950/80', border: 'border-emerald-500/70', text: 'text-emerald-300' },
+  { name: 'Rose / Pink (Not Interested / Dropped)', bg: 'bg-rose-950/70', border: 'border-rose-500/50', text: 'text-rose-400' },
+  { name: 'Zinc / Slate (Busy / Disconnected)', bg: 'bg-zinc-900', border: 'border-zinc-600', text: 'text-zinc-300' },
+  { name: 'Indigo / Sapphire (Special Atelier Batch)', bg: 'bg-indigo-950/70', border: 'border-indigo-500/50', text: 'text-indigo-300' },
+];
+
 export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminManagerProps) {
   const {
     campaigns,
@@ -205,11 +219,19 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
     deleteBankAccount,
     setDefaultBankAccount,
     resetDefaultBankAccounts,
+    callOutcomes,
+    saveCallOutcome,
+    deleteCallOutcome,
+    resetDefaultCallOutcomes,
     courses,
   } = useData();
 
+  // Dynamically populated call outcomes list from backend database with fallback to default presets
+  const activeCallOutcomes: CampaignCallOutcomeItem[] =
+    callOutcomes && callOutcomes.length > 0 ? callOutcomes : CALL_OUTCOME_CONFIGS;
+
   // Tab state within Campaign Admin
-  const [activeTab, setActiveTab] = useState<'campaigns' | 'leads' | 'templates' | 'banks'>('campaigns');
+  const [activeTab, setActiveTab] = useState<'campaigns' | 'leads' | 'outcomes' | 'templates' | 'banks'>('campaigns');
 
   // Search & Filter
   const [searchTerm, setSearchTerm] = useState('');
@@ -228,6 +250,7 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
   const [pointText, setPointText] = useState('');
   const [pointTextSinhala, setPointTextSinhala] = useState('');
   const [pointBadge, setPointBadge] = useState('');
+  const [editingAboutPointId, setEditingAboutPointId] = useState<string | null>(null);
 
   // Promotional Post Images Builder State (Tab: Promo Posts)
   const [postImageUrl, setPostImageUrl] = useState('');
@@ -237,6 +260,7 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
   const [postCaptionSinhala, setPostCaptionSinhala] = useState('');
   const [postBadge, setPostBadge] = useState('🔥 New Workshop');
   const [isUploadingPostImage, setIsUploadingPostImage] = useState(false);
+  const [editingPostImageId, setEditingPostImageId] = useState<string | null>(null);
 
   // Inter-Section Web Banners Builder State (Tab: Web Banners)
   const [bannerPosition, setBannerPosition] = useState<CampaignBannerPosition>('after_hero');
@@ -252,12 +276,18 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
   const [bannerButtonLink, setBannerButtonLink] = useState('#register-form');
   const [bannerBgColor, setBannerBgColor] = useState('from-[#3a0910] via-[#1a080d] to-[#0d0507]');
   const [isUploadingBannerImage, setIsUploadingBannerImage] = useState(false);
+  const [editingBannerId, setEditingBannerId] = useState<string | null>(null);
 
   // Gallery Images Builder State (Tab 4: Gallery)
   const [galleryImageUrl, setGalleryImageUrl] = useState('');
   const [galleryCaption, setGalleryCaption] = useState('');
   const [galleryCaptionSinhala, setGalleryCaptionSinhala] = useState('');
   const [galleryTag, setGalleryTag] = useState('Atelier Studio');
+  const [isUploadingGalleryImage, setIsUploadingGalleryImage] = useState(false);
+  const [editingGalleryImageId, setEditingGalleryImageId] = useState<string | null>(null);
+
+  // Certificate Showcase Upload State
+  const [isUploadingCertificateImage, setIsUploadingCertificateImage] = useState(false);
 
   // Selected Lead Details
   const [selectedLead, setSelectedLead] = useState<CampaignLead | null>(null);
@@ -327,6 +357,15 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
   const [modalTemplateBadge, setModalTemplateBadge] = useState('Custom');
   const [modalTemplateCategory, setModalTemplateCategory] = useState<'lead_crm' | 'general' | 'payment' | 'followup'>('lead_crm');
   const [modalTemplateMessage, setModalTemplateMessage] = useState('');
+
+  // Call Outcomes & Statuses Backend Manager State
+  const [editingOutcome, setEditingOutcome] = useState<CampaignCallOutcomeItem | null>(null);
+  const [isAddingOutcome, setIsAddingOutcome] = useState(false);
+  const [outcomeIdInput, setOutcomeIdInput] = useState('');
+  const [outcomeLabelInput, setOutcomeLabelInput] = useState('');
+  const [outcomeLabelSinhalaInput, setOutcomeLabelSinhalaInput] = useState('');
+  const [outcomeDescriptionInput, setOutcomeDescriptionInput] = useState('');
+  const [outcomeThemeIndex, setOutcomeThemeIndex] = useState(0);
 
   // Cover Image Upload State
   const [isUploadingCoverImage, setIsUploadingCoverImage] = useState(false);
@@ -842,6 +881,86 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
     }
   };
 
+  // Call Outcomes & Statuses Handlers
+  const handleStartEditCallOutcome = (outcome: CampaignCallOutcomeItem) => {
+    setEditingOutcome(outcome);
+    setIsAddingOutcome(false);
+    setOutcomeIdInput(outcome.id);
+    setOutcomeLabelInput(outcome.label);
+    setOutcomeLabelSinhalaInput(outcome.labelSinhala);
+    setOutcomeDescriptionInput(outcome.description || '');
+
+    const foundIdx = OUTCOME_COLOR_PRESETS.findIndex(
+      (p) => p.bg === outcome.badgeBg && p.border === outcome.badgeBorder
+    );
+    setOutcomeThemeIndex(foundIdx >= 0 ? foundIdx : 0);
+  };
+
+  const handleSaveCallOutcome = async () => {
+    if (!outcomeLabelInput.trim()) {
+      showToast('Please enter status name / word in English!');
+      return;
+    }
+
+    const theme = OUTCOME_COLOR_PRESETS[outcomeThemeIndex] || OUTCOME_COLOR_PRESETS[0];
+
+    if (editingOutcome) {
+      await saveCallOutcome({
+        ...editingOutcome,
+        label: outcomeLabelInput.trim(),
+        labelSinhala: outcomeLabelSinhalaInput.trim() || outcomeLabelInput.trim(),
+        badgeBg: theme.bg,
+        badgeBorder: theme.border,
+        badgeText: theme.text,
+        description: outcomeDescriptionInput.trim() || undefined,
+        updatedAt: new Date().toISOString(),
+      });
+      showToast(`Call Outcome "${outcomeLabelInput}" updated & saved!`);
+      setEditingOutcome(null);
+    } else {
+      const generatedId =
+        outcomeIdInput.trim() ||
+        outcomeLabelInput
+          .toUpperCase()
+          .replace(/[^A-Z0-9]+/g, '_')
+          .replace(/^_+|_+$/g, '');
+
+      await saveCallOutcome({
+        id: generatedId,
+        label: outcomeLabelInput.trim(),
+        labelSinhala: outcomeLabelSinhalaInput.trim() || outcomeLabelInput.trim(),
+        badgeBg: theme.bg,
+        badgeBorder: theme.border,
+        badgeText: theme.text,
+        description: outcomeDescriptionInput.trim() || undefined,
+        isSystem: false,
+        order: activeCallOutcomes.length + 1,
+        updatedAt: new Date().toISOString(),
+      });
+      showToast(`New Call Outcome "${outcomeLabelInput}" saved to database!`);
+      setIsAddingOutcome(false);
+    }
+
+    setOutcomeIdInput('');
+    setOutcomeLabelInput('');
+    setOutcomeLabelSinhalaInput('');
+    setOutcomeDescriptionInput('');
+  };
+
+  const handleDeleteCallOutcome = async (id: string, label: string) => {
+    if (confirm(`Are you sure you want to delete status outcome "${label}"?`)) {
+      await deleteCallOutcome(id);
+      showToast(`Status outcome "${label}" deleted.`);
+    }
+  };
+
+  const handleResetCallOutcomes = async () => {
+    if (confirm('Reset call outcomes to default standard statuses? Custom outcomes will be restored to defaults.')) {
+      await resetDefaultCallOutcomes();
+      showToast('Call outcomes restored to system defaults.');
+    }
+  };
+
   // Helper to replace dynamic placeholders in WhatsApp message
   const formatTemplateForLead = (
     templateText: string,
@@ -1178,6 +1297,155 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
     reader.readAsDataURL(file);
   };
 
+  // Helper to handle local Atelier & Workshop Gallery image upload & canvas compression
+  const handleGalleryImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      showToast('Please select a valid image file (PNG, JPG, WEBP)!');
+      return;
+    }
+
+    setIsUploadingGalleryImage(true);
+    const reader = new FileReader();
+    reader.onerror = () => {
+      setIsUploadingGalleryImage(false);
+      showToast('Failed to read gallery image file.');
+    };
+    reader.onload = (ev) => {
+      const rawData = ev.target?.result as string;
+      if (!rawData) {
+        setIsUploadingGalleryImage(false);
+        return;
+      }
+
+      const img = new Image();
+      img.onerror = () => {
+        setIsUploadingGalleryImage(false);
+        showToast('Invalid gallery image format.');
+      };
+      img.onload = () => {
+        try {
+          const maxDim = 1600;
+          let w = img.width;
+          let h = img.height;
+          if (w > maxDim || h > maxDim) {
+            if (w > h) {
+              h = Math.round((h * maxDim) / w);
+              w = maxDim;
+            } else {
+              w = Math.round((w * maxDim) / h);
+              h = maxDim;
+            }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, w, h);
+            const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.88);
+            setGalleryImageUrl(compressedDataUrl);
+            showToast('Gallery image loaded! Add captions and click "Add to Gallery".');
+          } else {
+            setGalleryImageUrl(rawData);
+          }
+        } catch (err) {
+          console.error(err);
+          setGalleryImageUrl(rawData);
+        } finally {
+          setIsUploadingGalleryImage(false);
+          e.target.value = '';
+        }
+      };
+      img.src = rawData;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Helper to handle local Course Certificate Showcase image upload & canvas compression
+  const handleCertificateImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      showToast('Please select a valid certificate image file (PNG, JPG, WEBP)!');
+      return;
+    }
+
+    setIsUploadingCertificateImage(true);
+    const reader = new FileReader();
+    reader.onerror = () => {
+      setIsUploadingCertificateImage(false);
+      showToast('Failed to read certificate image file.');
+    };
+    reader.onload = (ev) => {
+      const rawData = ev.target?.result as string;
+      if (!rawData) {
+        setIsUploadingCertificateImage(false);
+        return;
+      }
+
+      const img = new Image();
+      img.onerror = () => {
+        setIsUploadingCertificateImage(false);
+        showToast('Invalid certificate image format.');
+      };
+      img.onload = () => {
+        try {
+          const maxDim = 1600;
+          let w = img.width;
+          let h = img.height;
+          if (w > maxDim || h > maxDim) {
+            if (w > h) {
+              h = Math.round((h * maxDim) / w);
+              w = maxDim;
+            } else {
+              w = Math.round((w * maxDim) / h);
+              h = maxDim;
+            }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, w, h);
+            const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.90);
+            if (editingCampaign) {
+              setEditingCampaign({
+                ...editingCampaign,
+                certificateImageUrl: compressedDataUrl,
+              });
+              showToast('Certificate image uploaded! Click "Save Campaign" below to save.');
+            }
+          } else if (editingCampaign) {
+            setEditingCampaign({
+              ...editingCampaign,
+              certificateImageUrl: rawData,
+            });
+            showToast('Certificate image set! Click "Save Campaign" below to save.');
+          }
+        } catch (err) {
+          console.error(err);
+          if (editingCampaign) {
+            setEditingCampaign({
+              ...editingCampaign,
+              certificateImageUrl: rawData,
+            });
+            showToast('Certificate image loaded! Click "Save Campaign" below to save.');
+          }
+        } finally {
+          setIsUploadingCertificateImage(false);
+          e.target.value = '';
+        }
+      };
+      img.src = rawData;
+    };
+    reader.readAsDataURL(file);
+  };
+
   // Helper to open new campaign creator
   const handleCreateNewCampaign = () => {
     const newId = `camp-${Date.now()}`;
@@ -1362,6 +1630,18 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
           </button>
 
           <button
+            onClick={() => setActiveTab('outcomes')}
+            className={`px-3.5 py-2 rounded text-xs font-mono uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${
+              activeTab === 'outcomes'
+                ? 'bg-purple-500 text-black font-bold shadow'
+                : 'bg-[#0c090a] border border-white/10 text-[#a89f91] hover:text-white'
+            }`}
+          >
+            <Tag className="w-3.5 h-3.5" />
+            <span>Call Outcomes &amp; Statuses ({activeCallOutcomes.length})</span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('templates')}
             className={`px-3.5 py-2 rounded text-xs font-mono uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${
               activeTab === 'templates'
@@ -1402,6 +1682,24 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
             >
               <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
               <span>Export Leads (Excel)</span>
+            </button>
+          )}
+
+          {activeTab === 'outcomes' && (
+            <button
+              onClick={() => {
+                setEditingOutcome(null);
+                setIsAddingOutcome(true);
+                setOutcomeIdInput('');
+                setOutcomeLabelInput('');
+                setOutcomeLabelSinhalaInput('');
+                setOutcomeDescriptionInput('');
+                setOutcomeThemeIndex(0);
+              }}
+              className="px-4 py-2 bg-purple-500 text-black text-xs font-bold uppercase rounded hover:bg-purple-400 flex items-center gap-1.5 cursor-pointer shadow-lg font-mono"
+            >
+              <Plus className="w-4 h-4 fill-black" />
+              <span>Add Status Word</span>
             </button>
           )}
 
@@ -1524,20 +1822,34 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
                     )}
 
                     {/* Meta Stats Row */}
-                    <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-white/5 text-center font-mono text-xs">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3 pt-3 border-t border-white/5 text-center font-mono text-xs">
                       <div className="p-2 rounded bg-black/40 border border-white/5">
-                        <span className="text-[10px] text-[#a89f91] block uppercase">Leads Captured</span>
-                        <strong className="text-emerald-400 text-sm font-bold">{leadCount}</strong>
+                        <span className="text-[10px] text-[#a89f91] block uppercase flex items-center justify-center gap-1">
+                          <Eye className="w-3 h-3 text-emerald-400" />
+                          <span>Traffic / Views</span>
+                        </span>
+                        <strong className="text-emerald-400 text-sm font-bold">
+                          {(camp.viewsCount || 0).toLocaleString()}
+                        </strong>
+                      </div>
+                      <div className="p-2 rounded bg-black/40 border border-white/5">
+                        <span className="text-[10px] text-[#a89f91] block uppercase flex items-center justify-center gap-1">
+                          <Users className="w-3 h-3 text-[#dfb56c]" />
+                          <span>Leads</span>
+                        </span>
+                        <strong className="text-[#dfb56c] text-sm font-bold">{leadCount}</strong>
+                      </div>
+                      <div className="p-2 rounded bg-black/40 border border-white/5">
+                        <span className="text-[10px] text-[#a89f91] block uppercase">Conv. Rate</span>
+                        <strong className="text-white text-sm font-bold">
+                          {(((leadCount) / Math.max(1, camp.viewsCount || 0)) * 100).toFixed(1)}%
+                        </strong>
                       </div>
                       <div className="p-2 rounded bg-black/40 border border-white/5">
                         <span className="text-[10px] text-[#a89f91] block uppercase">Fee Offer</span>
                         <strong className="text-[#dfb56c] text-xs font-bold">
                           {camp.currency || 'LKR'} {(camp.discountPrice ?? 7500).toLocaleString()}
                         </strong>
-                      </div>
-                      <div className="p-2 rounded bg-black/40 border border-white/5">
-                        <span className="text-[10px] text-[#a89f91] block uppercase">Videos Embed</span>
-                        <strong className="text-white text-sm font-bold">{camp.videos?.length || 0}</strong>
                       </div>
                     </div>
 
@@ -1678,20 +1990,31 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
 
           {/* Call Status Filter Pills / Tabs */}
           <div className="p-3 rounded-lg bg-[#0f0a0c] border border-white/10 space-y-2">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="text-[11px] font-mono uppercase tracking-wider text-[#a89f91] font-bold flex items-center gap-1.5">
                 <Filter className="w-3.5 h-3.5 text-[#dfb56c]" />
                 <span>Filter Leads by Call Outcome / Status:</span>
               </span>
-              {leadCallStatusFilter !== 'ALL' && (
+              <div className="flex items-center gap-2">
+                {leadCallStatusFilter !== 'ALL' && (
+                  <button
+                    type="button"
+                    onClick={() => setLeadCallStatusFilter('ALL')}
+                    className="text-[11px] font-mono text-[#dfb56c] hover:underline cursor-pointer"
+                  >
+                    Show All Leads ({campaignLeads.length})
+                  </button>
+                )}
                 <button
                   type="button"
-                  onClick={() => setLeadCallStatusFilter('ALL')}
-                  className="text-[11px] font-mono text-[#dfb56c] hover:underline cursor-pointer"
+                  onClick={() => setActiveTab('outcomes')}
+                  className="px-2.5 py-1 rounded bg-purple-950/70 hover:bg-purple-900 border border-purple-500/50 text-purple-200 text-[10px] font-mono flex items-center gap-1 cursor-pointer transition-all shadow"
+                  title="Add, edit, or customize Call Outcome status words"
                 >
-                  Show All Leads ({campaignLeads.length})
+                  <Edit3 className="w-3 h-3 text-purple-400" />
+                  <span>Customize Status Words</span>
                 </button>
-              )}
+              </div>
             </div>
 
             <div className="flex flex-wrap items-center gap-1.5 text-xs font-mono">
@@ -1710,7 +2033,7 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
                 </span>
               </button>
 
-              {CALL_OUTCOME_CONFIGS.map((out) => {
+              {activeCallOutcomes.map((out) => {
                 const count = campaignLeads.filter((l) => {
                   const s = l.callStatus || l.status;
                   if (s === out.id) return true;
@@ -1784,8 +2107,16 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
                     {filteredLeads.map((lead) => {
                       const effStatus = lead.callStatus || lead.status;
                       const statusConfig =
+                        activeCallOutcomes.find((c) => c.id === effStatus) ||
                         CALL_OUTCOME_CONFIGS.find((c) => c.id === effStatus) ||
-                        CALL_OUTCOME_CONFIGS[0];
+                        activeCallOutcomes[0] || {
+                          id: effStatus,
+                          label: effStatus,
+                          labelSinhala: '',
+                          badgeBg: 'bg-zinc-900',
+                          badgeBorder: 'border-zinc-700',
+                          badgeText: 'text-zinc-300',
+                        };
 
                       return (
                         <tr key={lead.id} className="hover:bg-white/5 transition-colors">
@@ -1967,13 +2298,14 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
                                 onChange={(e) => {
                                   const newStatus = e.target.value as CampaignCallOutcome;
                                   updateCampaignLeadStatus(lead.id, newStatus);
-                                  showToast(`Status updated to "${newStatus}"!`);
+                                  const targetObj = activeCallOutcomes.find((c) => c.id === newStatus);
+                                  showToast(`Status updated to "${targetObj?.label || newStatus}"!`);
                                 }}
                                 className={`px-2 py-1 rounded text-[10px] font-mono font-bold uppercase border bg-black outline-none cursor-pointer ${statusConfig.badgeBorder} ${statusConfig.badgeText}`}
                               >
-                                {CALL_OUTCOME_CONFIGS.map((out) => (
+                                {activeCallOutcomes.map((out) => (
                                   <option key={out.id} value={out.id} className="bg-[#120a0d] text-white">
-                                    {out.label}
+                                    {out.label} {out.labelSinhala ? `(${out.labelSinhala})` : ''}
                                   </option>
                                 ))}
                               </select>
@@ -2973,6 +3305,342 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
             </div>
           )}
 
+          {/* ========================================================= */}
+          {/* TAB: CALL OUTCOMES & STATUS WORDS MANAGER                 */}
+          {/* ========================================================= */}
+          {activeTab === 'outcomes' && (
+            <div className="space-y-6">
+              {/* Top Info Banner */}
+              <div className="p-4 rounded-xl bg-[#0c090a] border border-purple-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xl">
+                <div className="flex items-start gap-3">
+                  <div className="p-2.5 rounded-lg bg-purple-950/80 border border-purple-500/50 text-purple-300 shrink-0">
+                    <Tag className="w-6 h-6" />
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-[10px] font-mono uppercase tracking-widest text-purple-300 font-bold bg-purple-950/60 px-2 py-0.5 rounded border border-purple-500/30">
+                        Lead Funnel &amp; CRM Customizer
+                      </span>
+                      <span className="text-xs font-mono text-zinc-400">
+                        Total Status Words: {activeCallOutcomes.length}
+                      </span>
+                    </div>
+                    <h3 className="text-base font-editorial font-bold text-white">
+                      Call Outcomes &amp; Status Words Manager (දුරකථන ඇමතුම් ප්‍රතිඵල සහ තත්වයන්)
+                    </h3>
+                    <p className="text-xs text-[#d5cfc4] font-sinhala leading-relaxed max-w-3xl">
+                      Student Leads CRM හි 'Call Outcome &amp; Status' යටතේ එන Dropdown එකෙහි ඇති වචන (Words/Labels), සිංහල අර්ථයන් සහ පාට මෙතැනින් සංස්කරණය කළ හැක හෝ අලුතින් එක් කර Backend හි ස්ථිරව සුරැකිය හැක. ඔබ මෙහි සිදුකරන වෙනස්කම් Leads Table එකෙහි Dropdown, Call Logger Modal එක, සහ Leads Filter Pills වලට ස්වයංක්‍රීයව අදාළ වේ.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingOutcome(null);
+                      setIsAddingOutcome(true);
+                      setOutcomeIdInput('');
+                      setOutcomeLabelInput('');
+                      setOutcomeLabelSinhalaInput('');
+                      setOutcomeDescriptionInput('');
+                      setOutcomeThemeIndex(0);
+                    }}
+                    className="px-4 py-2 bg-purple-500 hover:bg-purple-400 text-black font-bold text-xs font-mono uppercase rounded flex items-center gap-1.5 cursor-pointer shadow-lg transition-all"
+                  >
+                    <Plus className="w-4 h-4 fill-black" />
+                    <span>Add New Status Word</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleResetCallOutcomes}
+                    className="px-3 py-2 bg-[#1b1013] hover:bg-[#281318] border border-white/15 text-zinc-300 hover:text-white text-xs font-mono rounded flex items-center gap-1.5 cursor-pointer"
+                    title="Restore default status words"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>Restore Defaults</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Add / Edit Form Modal or Card */}
+              {(isAddingOutcome || editingOutcome) && (
+                <div className="p-5 rounded-xl bg-[#0f0a0c] border-2 border-purple-500/60 shadow-2xl space-y-4">
+                  <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 rounded bg-purple-950/80 text-purple-300 border border-purple-500/40">
+                        <Edit3 className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-editorial font-bold text-white">
+                          {editingOutcome
+                            ? `Edit Status Word: "${editingOutcome.label}"`
+                            : 'Create New Call Outcome / Status Word (නව තත්වයක් එක් කරන්න)'}
+                        </h4>
+                        <span className="text-[10px] font-mono text-[#a89f91]">
+                          Dropdown Label, Sinhala Translation &amp; Badge Color Styling
+                        </span>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsAddingOutcome(false);
+                        setEditingOutcome(null);
+                      }}
+                      className="p-1.5 rounded-full hover:bg-white/10 text-zinc-400 hover:text-white cursor-pointer"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {/* Form Inputs Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* English Label */}
+                    <div>
+                      <label className="block text-xs font-mono uppercase text-[#dfb56c] mb-1 font-bold">
+                        Status Word / Name (English) *
+                      </label>
+                      <input
+                        type="text"
+                        value={outcomeLabelInput}
+                        onChange={(e) => setOutcomeLabelInput(e.target.value)}
+                        placeholder="e.g. WhatsApp Catalog Sent / Awaiting Parent Approval"
+                        className="w-full px-3 py-2 bg-black border border-white/20 rounded text-xs text-white focus:border-purple-400 outline-none"
+                      />
+                      <span className="text-[10px] text-zinc-500 font-mono mt-1 block">
+                        Dropdown එකෙහි සහ Lead record එකෙහි පෙන්වන ප්‍රධාන නම
+                      </span>
+                    </div>
+
+                    {/* Sinhala Label */}
+                    <div>
+                      <label className="block text-xs font-mono uppercase text-[#dfb56c] mb-1 font-bold">
+                        Status Word / Name (Sinhala) *
+                      </label>
+                      <input
+                        type="text"
+                        value={outcomeLabelSinhalaInput}
+                        onChange={(e) => setOutcomeLabelSinhalaInput(e.target.value)}
+                        placeholder="e.g. WhatsApp විස්තර යැවීය / දෙමාපියන්ගේ අනුමැතිය අපේක්ෂාවෙන්"
+                        className="w-full px-3 py-2 bg-black border border-white/20 rounded text-xs text-white focus:border-purple-400 outline-none font-sinhala"
+                      />
+                      <span className="text-[10px] text-zinc-500 font-mono mt-1 block">
+                        සිංහල මාතෘකාව හෝ විස්තරාත්මක සටහන
+                      </span>
+                    </div>
+
+                    {/* Code / Unique ID */}
+                    <div>
+                      <label className="block text-xs font-mono uppercase text-[#dfb56c] mb-1 font-bold">
+                        Status Code ID (Unique System Key)
+                      </label>
+                      <input
+                        type="text"
+                        value={outcomeIdInput}
+                        onChange={(e) => setOutcomeIdInput(e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, ''))}
+                        placeholder="e.g. WHATSAPP_CATALOG_SENT"
+                        disabled={!!editingOutcome}
+                        className="w-full px-3 py-2 bg-black border border-white/20 rounded text-xs text-purple-300 font-mono focus:border-purple-400 outline-none disabled:opacity-50"
+                      />
+                      <span className="text-[10px] text-zinc-500 font-mono mt-1 block">
+                        {editingOutcome ? 'Code ID cannot be changed once created.' : 'හිස්ව තැබුවහොත් English නම අනුව ස්වයංක්‍රීයව සෑදේ.'}
+                      </span>
+                    </div>
+
+                    {/* Optional Guidance / Description */}
+                    <div>
+                      <label className="block text-xs font-mono uppercase text-[#dfb56c] mb-1 font-bold">
+                        Agent Guidance / Notes (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        value={outcomeDescriptionInput}
+                        onChange={(e) => setOutcomeDescriptionInput(e.target.value)}
+                        placeholder="e.g. Sent syllabus brochure via WhatsApp and awaiting response"
+                        className="w-full px-3 py-2 bg-black border border-white/20 rounded text-xs text-white focus:border-purple-400 outline-none"
+                      />
+                      <span className="text-[10px] text-zinc-500 font-mono mt-1 block">
+                        ඇමතුම් ගන්නා නිලධාරියාට උපදෙස්
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Color Theme Selector */}
+                  <div>
+                    <label className="block text-xs font-mono uppercase text-[#dfb56c] mb-2 font-bold">
+                      Select Badge Color &amp; Visual Style / වර්ණය සහ පෙනුම
+                    </label>
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                      {OUTCOME_COLOR_PRESETS.map((preset, pIdx) => {
+                        const isSelected = outcomeThemeIndex === pIdx;
+                        return (
+                          <button
+                            key={pIdx}
+                            type="button"
+                            onClick={() => setOutcomeThemeIndex(pIdx)}
+                            className={`p-2.5 rounded border text-left cursor-pointer transition-all flex flex-col gap-1 ${
+                              isSelected
+                                ? `${preset.bg} ${preset.border} ring-2 ring-purple-400 shadow-md`
+                                : `${preset.bg} border-white/10 opacity-70 hover:opacity-100`
+                            }`}
+                          >
+                            <span className={`text-[11px] font-mono font-bold ${preset.text} truncate`}>
+                              {preset.name.split(' (')[0]}
+                            </span>
+                            <span className="text-[9px] text-zinc-400 truncate">
+                              {preset.name.split(' (')[1]?.replace(')', '') || ''}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Live Preview Bar */}
+                  <div className="p-3 rounded-lg bg-black/80 border border-white/15 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-mono text-zinc-400">Live Preview:</span>
+                      {(() => {
+                        const p = OUTCOME_COLOR_PRESETS[outcomeThemeIndex] || OUTCOME_COLOR_PRESETS[0];
+                        return (
+                          <span className={`px-2.5 py-1 rounded border text-xs font-mono font-bold ${p.bg} ${p.border} ${p.text}`}>
+                            {outcomeLabelInput || 'Preview Status Word'}
+                          </span>
+                        );
+                      })()}
+                      {outcomeLabelSinhalaInput && (
+                        <span className="text-xs text-[#dfb56c] font-sinhala">
+                          ({outcomeLabelSinhalaInput})
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsAddingOutcome(false);
+                          setEditingOutcome(null);
+                        }}
+                        className="px-4 py-2 rounded bg-zinc-900 hover:bg-zinc-800 text-zinc-300 text-xs font-mono cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleSaveCallOutcome}
+                        className="px-6 py-2 bg-gradient-to-r from-purple-500 to-indigo-500 hover:brightness-110 text-black font-bold text-xs font-mono uppercase rounded flex items-center gap-1.5 cursor-pointer shadow-lg transition-all"
+                      >
+                        <Save className="w-4 h-4" />
+                        <span>Save Call Outcome / සුරකින්න</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* List of Configured Call Outcomes */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-mono uppercase tracking-wider text-[#dfb56c] font-bold">
+                    Active Dropdown Words &amp; Status Badges ({activeCallOutcomes.length})
+                  </span>
+                  <span className="text-[11px] font-mono text-zinc-400">
+                    Click "Edit" on any status to modify its English/Sinhala word or color
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {activeCallOutcomes.map((out, idx) => {
+                    const leadsWithThisStatus = campaignLeads.filter(
+                      (l) => (l.callStatus || l.status) === out.id
+                    ).length;
+
+                    return (
+                      <div
+                        key={out.id}
+                        className="p-3.5 rounded-lg bg-[#0c090a] border border-white/10 hover:border-purple-500/40 transition-all shadow-md flex flex-col justify-between gap-3 group"
+                      >
+                        <div className="space-y-2">
+                          <div className="flex items-start justify-between gap-2">
+                            <span
+                              className={`px-2.5 py-1 rounded border text-xs font-mono font-bold ${out.badgeBg} ${out.badgeBorder} ${out.badgeText} shadow-sm`}
+                            >
+                              {out.label}
+                            </span>
+
+                            <span className="text-[10px] font-mono text-zinc-500">
+                              #{idx + 1}
+                            </span>
+                          </div>
+
+                          <div>
+                            <div className="text-xs font-sinhala text-[#dfb56c] font-medium leading-snug">
+                              {out.labelSinhala}
+                            </div>
+                            <div className="text-[10px] font-mono text-zinc-400 mt-1 flex items-center gap-1">
+                              <span className="text-zinc-600">ID:</span>
+                              <span className="text-zinc-300 font-bold">{out.id}</span>
+                            </div>
+                            {out.description && (
+                              <p className="text-[11px] text-zinc-400 mt-1 line-clamp-2">
+                                {out.description}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="pt-2 border-t border-white/10 flex items-center justify-between text-xs font-mono">
+                          <span className="text-[11px] text-zinc-400">
+                            Used in <strong className="text-white">{leadsWithThisStatus}</strong> lead{leadsWithThisStatus === 1 ? '' : 's'}
+                          </span>
+
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => handleStartEditCallOutcome(out)}
+                              className="px-2 py-1 rounded bg-[#1f1418] hover:bg-[#321721] border border-purple-500/40 text-purple-200 text-[11px] font-mono flex items-center gap-1 cursor-pointer transition-all"
+                              title="Edit this status word & color"
+                            >
+                              <Edit className="w-3 h-3 text-purple-300" />
+                              <span>Edit</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteCallOutcome(out.id, out.label)}
+                              className="p-1 rounded text-red-400 hover:text-red-200 hover:bg-red-950/60 cursor-pointer"
+                              title="Delete status word"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Informational Guidance Box */}
+              <div className="p-4 rounded-xl bg-[#0c090a] border border-purple-500/30 flex items-start gap-3 text-xs font-sans">
+                <span className="text-xl shrink-0">💡</span>
+                <div className="space-y-1 text-[#d5cfc4]">
+                  <strong className="text-purple-300 block font-mono uppercase tracking-wider text-[11px]">
+                    Real-Time CRM Dropdown Synchronization
+                  </strong>
+                  <p className="leading-relaxed font-sinhala">
+                    ඔබ මෙහි එක් කරන හෝ සංස්කරණය කරන ඕනෑම තත්වයක් (Status Word) ස්වයංක්‍රීයව Student Leads CRM වගුවේ <strong>"Call Outcome &amp; Status"</strong> dropdown එකෙහි සහ Call Logger හි දිස්වේ. අවශ්‍ය ඕනෑම අවස්ථාවක නව වචන එක් කළ හැකි අතර, පැරණි වචන සංස්කරණය කර Backend හි සුරැකිය හැක.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
 
           {/* ========================================================= */}
           {/* CRM CALL LOGGER & NOTES MODAL                             */}
@@ -3063,11 +3731,25 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
 
                   {/* Call Outcome Selection */}
                   <div>
-                    <label className="block text-xs font-mono uppercase text-[#dfb56c] mb-2 font-bold">
-                      1. Call Outcome / දුරකථන ඇමතුමේ ප්‍රතිඵලය *
-                    </label>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-xs font-mono uppercase text-[#dfb56c] font-bold">
+                        1. Call Outcome / දුරකථන ඇමතුමේ ප්‍රතිඵලය *
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCallLoggingLead(null);
+                          setActiveTab('outcomes');
+                        }}
+                        className="text-[10px] font-mono text-[#dfb56c] hover:underline flex items-center gap-1 cursor-pointer"
+                        title="Add or edit status words in backend"
+                      >
+                        <Edit3 className="w-3 h-3 text-[#dfb56c]" />
+                        <span>Manage Status Words</span>
+                      </button>
+                    </div>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                      {CALL_OUTCOME_CONFIGS.map((out) => {
+                      {activeCallOutcomes.map((out) => {
                         const isSelected = callOutcomeInput === out.id;
                         return (
                           <button
@@ -4266,6 +4948,63 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
                     </select>
                   </div>
 
+                  {/* Campaign Traffic & Visits Analytics / Baseline Customizer */}
+                  <div className="p-4 rounded-lg bg-black/60 border border-emerald-500/40 space-y-3.5 shadow-md">
+                    <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                      <div className="flex items-center gap-2">
+                        <Eye className="w-4 h-4 text-emerald-400" />
+                        <span className="text-xs font-mono uppercase text-emerald-300 font-bold">
+                          Campaign Traffic &amp; Visit Counter / පැමිණි සිසුන් ගණන
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/60 border border-emerald-500/40 px-2.5 py-0.5 rounded font-bold">
+                        ● Live Tracking Active
+                      </span>
+                    </div>
+
+                    <p className="text-xs text-[#a89f91] font-sinhala leading-relaxed">
+                      Facebook / Instagram Ads හරහා මෙම Campaign Page වෙත පැමිණෙන ශිෂ්‍ය පිවිසුම් (Traffic / Visits) මෙහි ස්වයංක්‍රීයව ගණනය වේ. ශිෂ්‍ය පෝරමයේ Social Proof ලෙස පෙන්වීමට අවශ්‍ය නම් ආරම්භක Baseline Visits ගණන මෙහි සකසා Save කළ හැක.
+                    </p>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 font-mono text-xs">
+                      <div className="p-3 rounded bg-[#140b0e] border border-white/10 space-y-1">
+                        <label className="text-[10px] text-[#a89f91] uppercase block font-bold">
+                          Total Page Visits / මුළු පිවිසුම්
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={editingCampaign.viewsCount ?? 0}
+                          onChange={(e) =>
+                            setEditingCampaign({
+                              ...editingCampaign,
+                              viewsCount: Math.max(0, parseInt(e.target.value) || 0),
+                            })
+                          }
+                          className="w-full px-3 py-1.5 bg-black border border-emerald-500/50 rounded text-sm text-emerald-300 font-bold focus:border-emerald-400 outline-none font-mono"
+                        />
+                      </div>
+
+                      <div className="p-3 rounded bg-[#140b0e] border border-white/10 space-y-1">
+                        <label className="text-[10px] text-[#a89f91] uppercase block font-bold">
+                          Leads Captured / ලියාපදිංචි වූ සිසුන්
+                        </label>
+                        <div className="px-3 py-2 bg-black/60 border border-white/10 rounded text-sm font-bold text-white">
+                          {editingCampaign.leadsCount ?? campaignLeads.filter(l => l.campaignSlug === editingCampaign.slug || l.campaignId === editingCampaign.id).length}
+                        </div>
+                      </div>
+
+                      <div className="p-3 rounded bg-[#140b0e] border border-white/10 space-y-1">
+                        <label className="text-[10px] text-[#a89f91] uppercase block font-bold">
+                          Conversion Rate / සාර්ථකත්ව ප්‍රතිශතය
+                        </label>
+                        <div className="px-3 py-2 bg-black/60 border border-white/10 rounded text-sm font-bold text-[#dfb56c]">
+                          {(((editingCampaign.leadsCount ?? campaignLeads.filter(l => l.campaignSlug === editingCampaign.slug || l.campaignId === editingCampaign.id).length) / Math.max(1, editingCampaign.viewsCount || 1)) * 100).toFixed(1)}%
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
                   {/* Cover Page Hero Image Customizer */}
                   <div className="p-4 rounded-lg bg-black/60 border border-[#dfb56c]/40 space-y-3.5 shadow-md">
                     <div className="flex items-center justify-between border-b border-white/10 pb-2">
@@ -4546,35 +5285,81 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
                           />
                         </div>
 
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (!pointText.trim() && !pointTextSinhala.trim()) {
-                              showToast('Please enter point text!');
-                              return;
-                            }
-                            const current = editingCampaign.aboutPoints || [];
-                            const newPoint: CampaignCoursePoint = {
-                              id: `pt-${Date.now()}`,
-                              symbol: pointSymbol || '✨',
-                              text: pointText.trim() || pointTextSinhala.trim(),
-                              textSinhala: pointTextSinhala.trim() || undefined,
-                              badge: pointBadge.trim() || undefined,
-                            };
-                            setEditingCampaign({
-                              ...editingCampaign,
-                              aboutPoints: [...current, newPoint],
-                            });
-                            setPointText('');
-                            setPointTextSinhala('');
-                            setPointBadge('');
-                            showToast('Course point added with symbol!');
-                          }}
-                          className="px-4 py-1.5 bg-[#540d18] hover:bg-[#6e1322] border border-[#dfb56c] text-[#f7e2a9] text-xs font-mono font-bold rounded flex items-center justify-center gap-1.5 cursor-pointer shadow transition-all shrink-0"
-                        >
-                          <Plus className="w-3.5 h-3.5 text-[#dfb56c]" />
-                          <span>Add Point with Symbol (+ කරුණක් එක් කරන්න)</span>
-                        </button>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {editingAboutPointId && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingAboutPointId(null);
+                                setPointText('');
+                                setPointTextSinhala('');
+                                setPointBadge('');
+                                setPointSymbol('✨');
+                              }}
+                              className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-mono rounded cursor-pointer transition-all"
+                            >
+                              Cancel
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (!pointText.trim() && !pointTextSinhala.trim()) {
+                                showToast('Please enter point text!');
+                                return;
+                              }
+                              const current = editingCampaign.aboutPoints || [];
+                              if (editingAboutPointId) {
+                                const updated = current.map((p) =>
+                                  p.id === editingAboutPointId
+                                    ? {
+                                        ...p,
+                                        symbol: pointSymbol || '✨',
+                                        text: pointText.trim() || pointTextSinhala.trim(),
+                                        textSinhala: pointTextSinhala.trim() || undefined,
+                                        badge: pointBadge.trim() || undefined,
+                                      }
+                                    : p
+                                );
+                                setEditingCampaign({
+                                  ...editingCampaign,
+                                  aboutPoints: updated,
+                                });
+                                setEditingAboutPointId(null);
+                                showToast('Course point updated successfully!');
+                              } else {
+                                const newPoint: CampaignCoursePoint = {
+                                  id: `pt-${Date.now()}`,
+                                  symbol: pointSymbol || '✨',
+                                  text: pointText.trim() || pointTextSinhala.trim(),
+                                  textSinhala: pointTextSinhala.trim() || undefined,
+                                  badge: pointBadge.trim() || undefined,
+                                };
+                                setEditingCampaign({
+                                  ...editingCampaign,
+                                  aboutPoints: [...current, newPoint],
+                                });
+                                showToast('Course point added with symbol!');
+                              }
+                              setPointText('');
+                              setPointTextSinhala('');
+                              setPointBadge('');
+                            }}
+                            className="px-4 py-1.5 bg-[#540d18] hover:bg-[#6e1322] border border-[#dfb56c] text-[#f7e2a9] text-xs font-mono font-bold rounded flex items-center justify-center gap-1.5 cursor-pointer shadow transition-all shrink-0"
+                          >
+                            {editingAboutPointId ? (
+                              <>
+                                <CheckCircle2 className="w-3.5 h-3.5 text-[#dfb56c]" />
+                                <span>Update Course Point (කරුණ සුරකින්න)</span>
+                              </>
+                            ) : (
+                              <>
+                                <Plus className="w-3.5 h-3.5 text-[#dfb56c]" />
+                                <span>Add Point with Symbol (+ කරුණක් එක් කරන්න)</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
                       </div>
 
                       {/* Quick Presets for Fashion Academy */}
@@ -4628,7 +5413,9 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
                         editingCampaign.aboutPoints.map((pt, ptIdx) => (
                           <div
                             key={pt.id || ptIdx}
-                            className="p-3 rounded-lg bg-black/70 border border-white/15 flex items-start justify-between gap-3 hover:border-[#dfb56c]/50 transition-all shadow-sm"
+                            className={`p-3 rounded-lg bg-black/70 border flex items-start justify-between gap-3 transition-all shadow-sm ${
+                              editingAboutPointId === pt.id ? 'border-[#dfb56c] ring-1 ring-[#dfb56c]/50' : 'border-white/15 hover:border-[#dfb56c]/50'
+                            }`}
                           >
                             <div className="flex items-start gap-3">
                               <span className="w-9 h-9 rounded-lg bg-[#540d18] border border-[#dfb56c] flex items-center justify-center text-lg shrink-0 shadow">
@@ -4642,6 +5429,11 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
                                       {pt.badge}
                                     </span>
                                   )}
+                                  {editingAboutPointId === pt.id && (
+                                    <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[9px] font-mono">
+                                      Editing Now...
+                                    </span>
+                                  )}
                                 </div>
                                 {pt.textSinhala && (
                                   <p className="text-xs text-[#d5cfc4] font-sinhala leading-snug">
@@ -4651,18 +5443,38 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
                               </div>
                             </div>
 
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const updated = (editingCampaign.aboutPoints || []).filter((_, i) => i !== ptIdx);
-                                setEditingCampaign({ ...editingCampaign, aboutPoints: updated });
-                                showToast('Point removed');
-                              }}
-                              className="p-1 rounded text-red-400 hover:text-red-200 hover:bg-red-950/60 cursor-pointer shrink-0"
-                              title="Delete point"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingAboutPointId(pt.id);
+                                  setPointSymbol(pt.symbol || '✨');
+                                  setPointText(pt.text || '');
+                                  setPointTextSinhala(pt.textSinhala || '');
+                                  setPointBadge(pt.badge || '');
+                                  showToast('Editing point. Update details above and click "Update Course Point".');
+                                }}
+                                className="p-1 rounded text-[#dfb56c] hover:text-[#f7e2a9] hover:bg-white/10 cursor-pointer"
+                                title="Edit point"
+                              >
+                                <Edit3 className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const updated = (editingCampaign.aboutPoints || []).filter((_, i) => i !== ptIdx);
+                                  setEditingCampaign({ ...editingCampaign, aboutPoints: updated });
+                                  if (editingAboutPointId === pt.id) {
+                                    setEditingAboutPointId(null);
+                                  }
+                                  showToast('Point removed');
+                                }}
+                                className="p-1 rounded text-red-400 hover:text-red-200 hover:bg-red-950/60 cursor-pointer"
+                                title="Delete point"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                           </div>
                         ))
                       )}
@@ -4935,9 +5747,35 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
                       }}
                       className="w-full py-2.5 rounded bg-gradient-to-r from-[#dfb56c] to-[#c99a45] hover:brightness-110 text-black font-mono font-bold text-xs uppercase flex items-center justify-center gap-2 cursor-pointer shadow-lg transition-all"
                     >
-                      <Plus className="w-4 h-4" />
-                      <span>Add Promotional Post Image / පෝස්ට් එකතු කරන්න</span>
+                      {editingPostImageId ? (
+                        <>
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span>Update Promotional Post / පෝස්ට් එක යාවත්කාලීන කරන්න</span>
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="w-4 h-4" />
+                          <span>Add Promotional Post Image / පෝස්ට් එකතු කරන්න</span>
+                        </>
+                      )}
                     </button>
+                    {editingPostImageId && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingPostImageId(null);
+                          setPostImageUrl('');
+                          setPostTitle('');
+                          setPostTitleSinhala('');
+                          setPostCaption('');
+                          setPostCaptionSinhala('');
+                          setPostBadge('🔥 New Workshop');
+                        }}
+                        className="w-full py-1.5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-mono text-xs cursor-pointer transition-all text-center"
+                      >
+                        Cancel Post Edit
+                      </button>
+                    )}
                   </div>
 
                   {/* Existing Post Images List */}
@@ -4956,7 +5794,9 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
                         {editingCampaign.postImages.map((post, pIdx) => (
                           <div
                             key={post.id || pIdx}
-                            className="p-3 rounded-lg bg-black/70 border border-white/15 flex flex-col justify-between gap-2.5 hover:border-[#dfb56c]/50 transition-all shadow-sm"
+                            className={`p-3 rounded-lg bg-black/70 border flex flex-col justify-between gap-2.5 transition-all shadow-sm ${
+                              editingPostImageId === post.id ? 'border-[#dfb56c] ring-1 ring-[#dfb56c]/50' : 'border-white/15 hover:border-[#dfb56c]/50'
+                            }`}
                           >
                             <div className="space-y-2">
                               <div className="relative rounded overflow-hidden h-36 bg-zinc-900 border border-white/10">
@@ -4973,6 +5813,11 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
                                 <span className="absolute bottom-2 right-2 px-1.5 py-0.5 rounded bg-black/80 text-[10px] font-mono text-zinc-300">
                                   #{pIdx + 1}
                                 </span>
+                                {editingPostImageId === post.id && (
+                                  <span className="absolute top-2 right-2 px-2 py-0.5 rounded bg-amber-500 text-black text-[10px] font-mono font-bold shadow">
+                                    Editing
+                                  </span>
+                                )}
                               </div>
 
                               <div>
@@ -5035,19 +5880,42 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
                                 )}
                               </div>
 
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const updated = (editingCampaign.postImages || []).filter((_, i) => i !== pIdx);
-                                  setEditingCampaign({ ...editingCampaign, postImages: updated });
-                                  showToast('Promotional post removed');
-                                }}
-                                className="px-2 py-1 rounded text-red-400 hover:text-red-200 hover:bg-red-950/60 flex items-center gap-1 cursor-pointer"
-                                title="Delete post"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                                <span>Remove</span>
-                              </button>
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingPostImageId(post.id);
+                                    setPostImageUrl(post.imageUrl);
+                                    setPostTitle(post.title || '');
+                                    setPostTitleSinhala(post.titleSinhala || '');
+                                    setPostCaption(post.caption || '');
+                                    setPostCaptionSinhala(post.captionSinhala || '');
+                                    setPostBadge(post.badge || '🔥 New Workshop');
+                                    showToast('Editing post. Update details above and click "Update Promotional Post".');
+                                  }}
+                                  className="px-2 py-1 rounded bg-[#38070e] hover:bg-[#540d18] text-[#dfb56c] border border-[#dfb56c]/30 flex items-center gap-1 cursor-pointer"
+                                  title="Edit promotional post"
+                                >
+                                  <Edit3 className="w-3.5 h-3.5" />
+                                  <span>Edit</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const updated = (editingCampaign.postImages || []).filter((_, i) => i !== pIdx);
+                                    setEditingCampaign({ ...editingCampaign, postImages: updated });
+                                    if (editingPostImageId === post.id) {
+                                      setEditingPostImageId(null);
+                                    }
+                                    showToast('Promotional post removed');
+                                  }}
+                                  className="px-2 py-1 rounded text-red-400 hover:text-red-200 hover:bg-red-950/60 flex items-center gap-1 cursor-pointer"
+                                  title="Delete post"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                  <span>Remove</span>
+                                </button>
+                              </div>
                             </div>
                           </div>
                         ))}
@@ -5302,49 +6170,107 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
                       </div>
                     )}
 
-                    {/* Add Banner Button */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (bannerType === 'image' && !bannerImageUrl.trim()) {
-                          showToast('Please upload or enter a banner image URL!');
-                          return;
-                        }
-                        if (bannerType === 'graphic' && !bannerTitle.trim()) {
-                          showToast('Please enter a banner headline!');
-                          return;
-                        }
+                    {/* Add / Update Banner Button */}
+                    <div className="flex items-center gap-2">
+                      {editingBannerId && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingBannerId(null);
+                            setBannerImageUrl('');
+                            setBannerTitle('Get Rs. 7,500 Off When You Enroll This Week!');
+                            setBannerTitleSinhala('මෙම සතියේ ලියාපදිංචි වන සිසුන්ට රු. 7,500 ක සුවිශේෂී වට්ටමක්!');
+                            setBannerSubtitle('Includes Free Pattern Drafting Kit & Lifetime Atelier Support');
+                            setBannerSubtitleSinhala('නොමිලේ Pattern Drafting Kit එක සහ ජීවිත කාලයටම උපදෙස් සහය');
+                            setBannerBadge('💎 EXCLUSIVE BONUS');
+                            setBannerButtonText('Claim Discount Now');
+                            setBannerButtonTextSinhala('දැන්ම ලියාපදිංචි වන්න');
+                          }}
+                          className="px-4 py-2.5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-mono text-xs cursor-pointer transition-all"
+                        >
+                          Cancel
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (bannerType === 'image' && !bannerImageUrl.trim()) {
+                            showToast('Please upload or enter a banner image URL!');
+                            return;
+                          }
+                          if (bannerType === 'graphic' && !bannerTitle.trim()) {
+                            showToast('Please enter a banner headline!');
+                            return;
+                          }
 
-                        const current = editingCampaign.sectionBanners || [];
-                        const newBanner: CampaignSectionBanner = {
-                          id: `banner-${Date.now()}-${current.length + 1}`,
-                          position: bannerPosition,
-                          bannerType: bannerType,
-                          imageUrl: bannerType === 'image' ? bannerImageUrl.trim() : undefined,
-                          title: bannerType === 'graphic' ? bannerTitle.trim() : undefined,
-                          titleSinhala: bannerType === 'graphic' ? bannerTitleSinhala.trim() || undefined : undefined,
-                          subtitle: bannerType === 'graphic' ? bannerSubtitle.trim() || undefined : undefined,
-                          subtitleSinhala: bannerType === 'graphic' ? bannerSubtitleSinhala.trim() || undefined : undefined,
-                          badge: bannerType === 'graphic' ? bannerBadge.trim() || undefined : undefined,
-                          buttonText: bannerButtonText.trim() || 'Claim Offer Now',
-                          buttonTextSinhala: bannerButtonTextSinhala.trim() || 'දැන්ම ලියාපදිංචි වන්න',
-                          buttonLink: bannerButtonLink.trim() || '#register-form',
-                          bgColor: bannerBgColor,
-                          isActive: true,
-                          order: current.length + 1,
-                        };
+                          const current = editingCampaign.sectionBanners || [];
+                          if (editingBannerId) {
+                            const updated = current.map((bn) =>
+                              bn.id === editingBannerId
+                                ? {
+                                    ...bn,
+                                    position: bannerPosition,
+                                    bannerType: bannerType,
+                                    imageUrl: bannerType === 'image' ? bannerImageUrl.trim() : undefined,
+                                    title: bannerType === 'graphic' ? bannerTitle.trim() : undefined,
+                                    titleSinhala: bannerType === 'graphic' ? bannerTitleSinhala.trim() || undefined : undefined,
+                                    subtitle: bannerType === 'graphic' ? bannerSubtitle.trim() || undefined : undefined,
+                                    subtitleSinhala: bannerType === 'graphic' ? bannerSubtitleSinhala.trim() || undefined : undefined,
+                                    badge: bannerType === 'graphic' ? bannerBadge.trim() || undefined : undefined,
+                                    buttonText: bannerButtonText.trim() || 'Claim Offer Now',
+                                    buttonTextSinhala: bannerButtonTextSinhala.trim() || 'දැන්ම ලියාපදිංචි වන්න',
+                                    buttonLink: bannerButtonLink.trim() || '#register-form',
+                                    bgColor: bannerBgColor,
+                                  }
+                                : bn
+                            );
+                            setEditingCampaign({
+                              ...editingCampaign,
+                              sectionBanners: updated,
+                            });
+                            setEditingBannerId(null);
+                            showToast(`Web banner updated! Click "Save Campaign" below to save.`);
+                          } else {
+                            const newBanner: CampaignSectionBanner = {
+                              id: `banner-${Date.now()}-${current.length + 1}`,
+                              position: bannerPosition,
+                              bannerType: bannerType,
+                              imageUrl: bannerType === 'image' ? bannerImageUrl.trim() : undefined,
+                              title: bannerType === 'graphic' ? bannerTitle.trim() : undefined,
+                              titleSinhala: bannerType === 'graphic' ? bannerTitleSinhala.trim() || undefined : undefined,
+                              subtitle: bannerType === 'graphic' ? bannerSubtitle.trim() || undefined : undefined,
+                              subtitleSinhala: bannerType === 'graphic' ? bannerSubtitleSinhala.trim() || undefined : undefined,
+                              badge: bannerType === 'graphic' ? bannerBadge.trim() || undefined : undefined,
+                              buttonText: bannerButtonText.trim() || 'Claim Offer Now',
+                              buttonTextSinhala: bannerButtonTextSinhala.trim() || 'දැන්ම ලියාපදිංචි වන්න',
+                              buttonLink: bannerButtonLink.trim() || '#register-form',
+                              bgColor: bannerBgColor,
+                              isActive: true,
+                              order: current.length + 1,
+                            };
 
-                        setEditingCampaign({
-                          ...editingCampaign,
-                          sectionBanners: [...current, newBanner],
-                        });
-                        showToast(`Web banner added at position "${bannerPosition}"! Click "Save Campaign" below to save.`);
-                      }}
-                      className="w-full py-2.5 rounded bg-gradient-to-r from-[#dfb56c] to-[#c99a45] hover:brightness-110 text-black font-mono font-bold text-xs uppercase flex items-center justify-center gap-2 cursor-pointer shadow-lg transition-all"
-                    >
-                      <Plus className="w-4 h-4" />
-                      <span>Add Section Web Banner / වෙබ් බැනරය එක් කරන්න</span>
-                    </button>
+                            setEditingCampaign({
+                              ...editingCampaign,
+                              sectionBanners: [...current, newBanner],
+                            });
+                            showToast(`Web banner added at position "${bannerPosition}"! Click "Save Campaign" below to save.`);
+                          }
+                        }}
+                        className="flex-1 py-2.5 rounded bg-gradient-to-r from-[#dfb56c] to-[#c99a45] hover:brightness-110 text-black font-mono font-bold text-xs uppercase flex items-center justify-center gap-2 cursor-pointer shadow-lg transition-all"
+                      >
+                        {editingBannerId ? (
+                          <>
+                            <CheckCircle2 className="w-4 h-4" />
+                            <span>Update Section Web Banner / වෙබ් බැනරය සුරකින්න</span>
+                          </>
+                        ) : (
+                          <>
+                            <Plus className="w-4 h-4" />
+                            <span>Add Section Web Banner / වෙබ් බැනරය එක් කරන්න</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
                   </div>
 
                   {/* Existing Section Banners List */}
@@ -5375,7 +6301,9 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
                             <div
                               key={bn.id || bIdx}
                               className={`p-3.5 rounded-lg border transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-md ${
-                                bn.isActive !== false
+                                editingBannerId === bn.id
+                                  ? 'bg-black/90 border-[#dfb56c] ring-1 ring-[#dfb56c]/60'
+                                  : bn.isActive !== false
                                   ? 'bg-black/80 border-[#dfb56c]/40'
                                   : 'bg-black/40 border-white/10 opacity-60'
                               }`}
@@ -5400,6 +6328,11 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
                                     ) : (
                                       <span className="text-[10px] font-mono text-zinc-500">
                                         Inactive (Hidden)
+                                      </span>
+                                    )}
+                                    {editingBannerId === bn.id && (
+                                      <span className="px-1.5 py-0.5 rounded bg-amber-500 text-black text-[10px] font-mono font-bold shadow">
+                                        Editing
                                       </span>
                                     )}
                                   </div>
@@ -5436,6 +6369,31 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
                                 <button
                                   type="button"
                                   onClick={() => {
+                                    setEditingBannerId(bn.id);
+                                    setBannerPosition(bn.position);
+                                    setBannerType(bn.bannerType === 'image' ? 'image' : 'graphic');
+                                    setBannerImageUrl(bn.imageUrl || '');
+                                    setBannerTitle(bn.title || '');
+                                    setBannerTitleSinhala(bn.titleSinhala || '');
+                                    setBannerSubtitle(bn.subtitle || '');
+                                    setBannerSubtitleSinhala(bn.subtitleSinhala || '');
+                                    setBannerBadge(bn.badge || '');
+                                    setBannerButtonText(bn.buttonText || 'Claim Offer Now');
+                                    setBannerButtonTextSinhala(bn.buttonTextSinhala || 'දැන්ම ලියාපදිංචි වන්න');
+                                    setBannerButtonLink(bn.buttonLink || '#register-form');
+                                    setBannerBgColor(bn.bgColor || 'from-[#3a0910] via-[#1a080d] to-[#0d0507]');
+                                    showToast('Editing banner. Update details above and click "Update Section Web Banner".');
+                                  }}
+                                  className="px-2 py-1 rounded bg-[#38070e] hover:bg-[#540d18] text-[#dfb56c] border border-[#dfb56c]/30 flex items-center gap-1 cursor-pointer text-xs font-mono"
+                                  title="Edit banner"
+                                >
+                                  <Edit3 className="w-3.5 h-3.5" />
+                                  <span>Edit</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => {
                                     const banners = [...(editingCampaign.sectionBanners || [])];
                                     banners[bIdx] = {
                                       ...banners[bIdx],
@@ -5458,6 +6416,9 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
                                   onClick={() => {
                                     const updated = (editingCampaign.sectionBanners || []).filter((_, i) => i !== bIdx);
                                     setEditingCampaign({ ...editingCampaign, sectionBanners: updated });
+                                    if (editingBannerId === bn.id) {
+                                      setEditingBannerId(null);
+                                    }
                                     showToast('Banner removed');
                                   }}
                                   className="p-1.5 rounded text-red-400 hover:text-red-200 hover:bg-red-950/60 cursor-pointer"
@@ -5622,15 +6583,48 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
                     </span>
                   </div>
 
-                  {/* Add New Gallery Image Box */}
-                  <div className="p-4 rounded-lg bg-black/70 border border-[#dfb56c]/40 space-y-3 shadow-lg">
+                  {/* Add / Edit Gallery Image Box */}
+                  <div className="p-4 rounded-lg bg-black/70 border border-[#dfb56c]/40 space-y-3.5 shadow-lg">
                     <span className="text-xs font-mono uppercase text-[#dfb56c] font-bold block">
-                      + Add New Gallery Image / අලුත් ඡායාරූපයක් එක් කිරීම
+                      {editingGalleryImageId ? '✏️ Edit Gallery Image / ඡායාරූපය සංස්කරණය කිරීම' : '+ Add New Gallery Image / අලුත් ඡායාරූපයක් එක් කිරීම'}
                     </span>
 
+                    {/* Method 1: Local File Upload */}
+                    <div className="p-3 rounded-lg bg-[#140b0e] border border-dashed border-[#dfb56c]/60 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-mono uppercase text-[#dfb56c] font-bold flex items-center gap-1.5">
+                          <Upload className="w-3.5 h-3.5 text-[#dfb56c]" />
+                          <span>Option 1: Upload Image File (Phone / PC / Tablet)</span>
+                        </span>
+                        {isUploadingGalleryImage && (
+                          <span className="text-[11px] font-mono text-amber-300 animate-pulse flex items-center gap-1">
+                            <RefreshCw className="w-3 h-3 animate-spin" /> Processing Photo...
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row items-center gap-3">
+                        <label className="w-full sm:w-auto px-4 py-2 rounded bg-gradient-to-r from-[#540d18] to-[#3a0910] hover:from-[#6b111f] hover:to-[#4d0c15] border border-[#dfb56c] text-[#f7e2a9] text-xs font-mono font-bold flex items-center justify-center gap-2 cursor-pointer transition-all shadow hover:scale-[1.02]">
+                          <Upload className="w-4 h-4 text-[#dfb56c]" />
+                          <span>Choose Gallery Image File / ඡායාරූපය තෝරන්න</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleGalleryImageFileChange}
+                            disabled={isUploadingGalleryImage}
+                            className="hidden"
+                          />
+                        </label>
+                        <span className="text-[11px] text-[#a89f91] font-sinhala text-center sm:text-left">
+                          PNG, JPG, WEBP (HD පැහැදිලි බව, ස්වයංක්‍රීයව Optimize වේ)
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Method 2: Image URL */}
                     <div>
                       <label className="block text-[11px] font-mono text-[#a89f91] mb-1">
-                        Image URL (Direct high-res photo link) *
+                        Option 2: Direct Image URL / වෙබ් ලින්ක් මගින්
                       </label>
                       <input
                         type="url"
@@ -5640,6 +6634,22 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
                         className="w-full px-3 py-2 bg-[#140b0e] border border-white/15 rounded text-xs text-white font-mono focus:border-[#dfb56c] outline-none"
                       />
                     </div>
+
+                    {/* Image Preview */}
+                    {galleryImageUrl && (
+                      <div className="relative rounded overflow-hidden h-32 bg-black border border-[#dfb56c]/50">
+                        <img
+                          src={galleryImageUrl}
+                          alt="Gallery Preview"
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end p-2">
+                          <span className="text-[11px] font-mono text-[#dfb56c] font-bold">
+                            Preview: {galleryCaption || 'Untitled Photo'} ({galleryTag})
+                          </span>
+                        </div>
+                      </div>
+                    )}
 
                     {/* Presets */}
                     <div>
@@ -5712,35 +6722,80 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
                       </div>
                     </div>
 
-                    <div className="pt-1 flex justify-end">
+                    <div className="pt-1 flex items-center justify-end gap-2">
+                      {editingGalleryImageId && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingGalleryImageId(null);
+                            setGalleryImageUrl('');
+                            setGalleryCaption('');
+                            setGalleryCaptionSinhala('');
+                            setGalleryTag('Atelier Studio');
+                          }}
+                          className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-mono rounded cursor-pointer transition-all"
+                        >
+                          Cancel
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() => {
                           if (!galleryImageUrl.trim()) {
-                            showToast('Please enter image URL!');
+                            showToast('Please select or upload an image first!');
                             return;
                           }
                           const current = editingCampaign.galleryImages || [];
-                          const newImg: CampaignGalleryImage = {
-                            id: `img-${Date.now()}`,
-                            imageUrl: galleryImageUrl.trim(),
-                            caption: galleryCaption.trim() || undefined,
-                            captionSinhala: galleryCaptionSinhala.trim() || undefined,
-                            tag: galleryTag.trim() || 'Atelier Studio',
-                          };
-                          setEditingCampaign({
-                            ...editingCampaign,
-                            galleryImages: [...current, newImg],
-                          });
+                          if (editingGalleryImageId) {
+                            const updated = current.map((img) =>
+                              img.id === editingGalleryImageId
+                                ? {
+                                    ...img,
+                                    imageUrl: galleryImageUrl.trim(),
+                                    caption: galleryCaption.trim() || undefined,
+                                    captionSinhala: galleryCaptionSinhala.trim() || undefined,
+                                    tag: galleryTag.trim() || 'Atelier Studio',
+                                  }
+                                : img
+                            );
+                            setEditingCampaign({
+                              ...editingCampaign,
+                              galleryImages: updated,
+                            });
+                            setEditingGalleryImageId(null);
+                            showToast('Gallery image updated successfully!');
+                          } else {
+                            const newImg: CampaignGalleryImage = {
+                              id: `img-${Date.now()}`,
+                              imageUrl: galleryImageUrl.trim(),
+                              caption: galleryCaption.trim() || undefined,
+                              captionSinhala: galleryCaptionSinhala.trim() || undefined,
+                              tag: galleryTag.trim() || 'Atelier Studio',
+                            };
+                            setEditingCampaign({
+                              ...editingCampaign,
+                              galleryImages: [...current, newImg],
+                            });
+                            showToast('Gallery image added!');
+                          }
                           setGalleryImageUrl('');
                           setGalleryCaption('');
                           setGalleryCaptionSinhala('');
-                          showToast('Gallery image added!');
+                          setGalleryTag('Atelier Studio');
                         }}
                         className="px-5 py-2 bg-[#540d18] hover:bg-[#6e1322] border border-[#dfb56c] text-[#f7e2a9] text-xs font-mono font-bold rounded flex items-center gap-1.5 cursor-pointer shadow transition-all"
                       >
-                        <Plus className="w-3.5 h-3.5 text-[#dfb56c]" />
-                        <span>Add to Gallery / ගැලරියට එක් කරන්න</span>
+                        {editingGalleryImageId ? (
+                          <>
+                            <CheckCircle2 className="w-3.5 h-3.5 text-[#dfb56c]" />
+                            <span>Update Gallery Image / ඡායාරූපය යාවත්කාලීන කරන්න</span>
+                          </>
+                        ) : (
+                          <>
+                            <Plus className="w-3.5 h-3.5 text-[#dfb56c]" />
+                            <span>Add to Gallery / ගැලරියට එක් කරන්න</span>
+                          </>
+                        )}
                       </button>
                     </div>
                   </div>
@@ -5753,14 +6808,16 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
 
                     {(!editingCampaign.galleryImages || editingCampaign.galleryImages.length === 0) ? (
                       <div className="p-6 text-center rounded-lg bg-black/40 border border-dashed border-white/10 text-xs text-[#a89f91] font-sinhala">
-                        තවම ගැලරියට ඡායාරූප එක් කර නැත. ඉහත Presets හෝ Image URL භාවිතයෙන් ඡායාරූප එක් කරන්න.
+                        තවම ගැලරියට ඡායාරූප එක් කර නැත. ඉහත Upload බොත්තම, Presets හෝ Image URL භාවිතයෙන් ඡායාරූප එක් කරන්න.
                       </div>
                     ) : (
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                         {editingCampaign.galleryImages.map((img, iIdx) => (
                           <div
                             key={img.id || iIdx}
-                            className="rounded-lg overflow-hidden border border-white/15 bg-black/70 group relative shadow-md"
+                            className={`rounded-lg overflow-hidden border bg-black/70 group relative shadow-md transition-all ${
+                              editingGalleryImageId === img.id ? 'border-[#dfb56c] ring-2 ring-[#dfb56c]/70' : 'border-white/15'
+                            }`}
                           >
                             <div className="aspect-video w-full bg-zinc-900 relative">
                               <img
@@ -5768,21 +6825,46 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
                                 alt={img.caption || 'Gallery photo'}
                                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                               />
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const updated = (editingCampaign.galleryImages || []).filter((_, i) => i !== iIdx);
-                                  setEditingCampaign({ ...editingCampaign, galleryImages: updated });
-                                  showToast('Gallery image removed');
-                                }}
-                                className="absolute top-2 right-2 p-1 rounded-full bg-red-950/80 border border-red-500 text-red-200 hover:bg-red-900 cursor-pointer shadow"
-                                title="Delete image"
-                              >
-                                <Trash2 className="w-3 h-3" />
-                              </button>
+                              <div className="absolute top-2 right-2 flex items-center gap-1 z-10">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingGalleryImageId(img.id);
+                                    setGalleryImageUrl(img.imageUrl);
+                                    setGalleryCaption(img.caption || '');
+                                    setGalleryCaptionSinhala(img.captionSinhala || '');
+                                    setGalleryTag(img.tag || 'Atelier Studio');
+                                    showToast('Editing gallery image. Update details above and click "Update Gallery Image".');
+                                  }}
+                                  className="p-1 rounded-full bg-black/80 border border-[#dfb56c] text-[#dfb56c] hover:bg-[#540d18] cursor-pointer shadow"
+                                  title="Edit image details"
+                                >
+                                  <Edit3 className="w-3 h-3" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const updated = (editingCampaign.galleryImages || []).filter((_, i) => i !== iIdx);
+                                    setEditingCampaign({ ...editingCampaign, galleryImages: updated });
+                                    if (editingGalleryImageId === img.id) {
+                                      setEditingGalleryImageId(null);
+                                    }
+                                    showToast('Gallery image removed');
+                                  }}
+                                  className="p-1 rounded-full bg-red-950/80 border border-red-500 text-red-200 hover:bg-red-900 cursor-pointer shadow"
+                                  title="Delete image"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
+                              </div>
                               {img.tag && (
                                 <span className="absolute bottom-2 left-2 px-1.5 py-0.5 rounded text-[9px] font-mono bg-black/80 text-[#dfb56c] border border-white/10">
                                   {img.tag}
+                                </span>
+                              )}
+                              {editingGalleryImageId === img.id && (
+                                <span className="absolute top-2 left-2 px-1.5 py-0.5 rounded text-[9px] font-mono bg-amber-500 text-black font-bold shadow">
+                                  Editing
                                 </span>
                               )}
                             </div>
@@ -5823,11 +6905,43 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
                     </span>
                   </div>
 
-                  {/* Certificate Image URL input & presets */}
-                  <div className="p-4 rounded-lg bg-black/70 border border-[#dfb56c]/40 space-y-3 shadow-lg">
+                  {/* Certificate Image Upload & URL input & presets */}
+                  <div className="p-4 rounded-lg bg-black/70 border border-[#dfb56c]/40 space-y-3.5 shadow-lg">
+                    {/* Method 1: Local File Upload */}
+                    <div className="p-3.5 rounded-lg bg-[#140b0e] border border-dashed border-[#dfb56c]/60 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-mono uppercase text-[#dfb56c] font-bold flex items-center gap-1.5">
+                          <Upload className="w-3.5 h-3.5 text-[#dfb56c]" />
+                          <span>Option 1: Upload Certificate Image File (Phone / PC / Tablet)</span>
+                        </span>
+                        {isUploadingCertificateImage && (
+                          <span className="text-[11px] font-mono text-amber-300 animate-pulse flex items-center gap-1">
+                            <RefreshCw className="w-3 h-3 animate-spin" /> Processing Certificate...
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row items-center gap-3">
+                        <label className="w-full sm:w-auto px-4 py-2.5 rounded bg-gradient-to-r from-[#540d18] to-[#3a0910] hover:from-[#6b111f] hover:to-[#4d0c15] border border-[#dfb56c] text-[#f7e2a9] text-xs font-mono font-bold flex items-center justify-center gap-2 cursor-pointer transition-all shadow hover:scale-[1.02]">
+                          <Upload className="w-4 h-4 text-[#dfb56c]" />
+                          <span>Choose Certificate File / සහතිකයේ ඡායාරූපය තෝරන්න</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleCertificateImageFileChange}
+                            disabled={isUploadingCertificateImage}
+                            className="hidden"
+                          />
+                        </label>
+                        <span className="text-[11px] text-[#a89f91] font-sinhala text-center sm:text-left">
+                          PNG, JPG, WEBP (උසස් HD පැහැදිලි බවකින් සුරැකේ)
+                        </span>
+                      </div>
+                    </div>
+
                     <div>
                       <label className="block text-xs font-mono uppercase text-[#dfb56c] mb-1 font-bold">
-                        Certificate Preview Image URL *
+                        Option 2: Certificate Preview Image URL
                       </label>
                       <input
                         type="url"
@@ -6304,31 +7418,137 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-mono uppercase text-[#dfb56c] mb-1 font-bold">
-                        Countdown Timer End Date &amp; Time
+                  {/* Countdown Timer End Date & Time Box */}
+                  <div className="p-4 rounded-lg bg-black/70 border border-[#dfb56c]/40 space-y-3.5 shadow-md">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/10 pb-2">
+                      <label className="text-xs font-mono uppercase text-[#dfb56c] font-bold flex items-center gap-1.5">
+                        <Clock className="w-4 h-4 text-[#dfb56c]" />
+                        <span>Countdown Timer End Date &amp; Time / අවසන් දිනය සහ වේලාව</span>
                       </label>
-                      <input
-                        type="datetime-local"
-                        value={
-                          editingCampaign.countdownEndDate
-                            ? editingCampaign.countdownEndDate.slice(0, 16)
-                            : ''
-                        }
-                        onChange={(e) =>
-                          setEditingCampaign({
-                            ...editingCampaign,
-                            countdownEndDate: new Date(e.target.value).toISOString(),
-                          })
-                        }
-                        className="w-full px-3.5 py-2.5 bg-[#140b0e] border border-white/15 rounded text-xs text-white font-mono"
-                      />
+                      <span className="text-[10px] font-mono text-[#a89f91]">
+                        Type freely or use calendar picker
+                      </span>
                     </div>
+
+                    <p className="text-xs text-[#a89f91] font-sinhala leading-relaxed">
+                      Landing Page එකෙහි ඉහළින් දිවෙන Countdown Timer එක අවසන් වන දිනය සහ වේලාව පහතින් Type කරන්න (නැතහොත් Calendar මඟින් තෝරන්න).
+                    </p>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      {/* Direct Typable Input */}
+                      <div className="sm:col-span-2">
+                        <label className="block text-[11px] font-mono text-[#a89f91] mb-1">
+                          Type Date &amp; Time (Free Text / ඕනෑම දිනයක් Type කරන්න) *
+                        </label>
+                        <input
+                          type="text"
+                          value={editingCampaign.countdownEndDate || ''}
+                          onChange={(e) =>
+                            setEditingCampaign({
+                              ...editingCampaign,
+                              countdownEndDate: e.target.value,
+                            })
+                          }
+                          placeholder="e.g. 2026-11-30 23:59:00 or 2026-12-15 18:30"
+                          className="w-full px-3.5 py-2.5 bg-[#140b0e] border border-white/15 rounded text-xs text-[#dfb56c] font-mono focus:border-[#dfb56c] outline-none"
+                        />
+                      </div>
+
+                      {/* Visual Datetime Picker */}
+                      <div>
+                        <label className="block text-[11px] font-mono text-[#a89f91] mb-1">
+                          Or Pick via Calendar
+                        </label>
+                        <input
+                          type="datetime-local"
+                          value={
+                            editingCampaign.countdownEndDate && !isNaN(new Date(editingCampaign.countdownEndDate).getTime())
+                              ? new Date(new Date(editingCampaign.countdownEndDate).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)
+                              : ''
+                          }
+                          onChange={(e) => {
+                            if (!e.target.value) return;
+                            const d = new Date(e.target.value);
+                            if (!isNaN(d.getTime())) {
+                              setEditingCampaign({
+                                ...editingCampaign,
+                                countdownEndDate: `${e.target.value.replace('T', ' ')}:00`,
+                              });
+                            }
+                          }}
+                          className="w-full px-3 py-2 bg-[#140b0e] border border-white/15 rounded text-xs text-white font-mono focus:border-[#dfb56c] outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Quick Presets */}
+                    <div>
+                      <span className="block text-[10px] font-mono uppercase text-[#a89f91] mb-1">
+                        ⚡ Quick Presets / ක්ෂණික දිනයන්:
+                      </span>
+                      <div className="flex flex-wrap gap-1.5 text-xs">
+                        {[
+                          { label: '+2 Days', days: 2 },
+                          { label: '+5 Days', days: 5 },
+                          { label: '+7 Days (1 Week)', days: 7 },
+                          { label: '+14 Days (2 Weeks)', days: 14 },
+                          { label: '+30 Days (1 Month)', days: 30 },
+                        ].map((pr, pIdx) => (
+                          <button
+                            key={pIdx}
+                            type="button"
+                            onClick={() => {
+                              const target = new Date();
+                              target.setDate(target.getDate() + pr.days);
+                              target.setHours(23, 59, 59, 0);
+                              const yyyy = target.getFullYear();
+                              const mm = String(target.getMonth() + 1).padStart(2, '0');
+                              const dd = String(target.getDate()).padStart(2, '0');
+                              const formatted = `${yyyy}-${mm}-${dd} 23:59:59`;
+                              setEditingCampaign({
+                                ...editingCampaign,
+                                countdownEndDate: formatted,
+                              });
+                              showToast(`Countdown set to ${pr.label} (${formatted})`);
+                            }}
+                            className="px-2.5 py-1 rounded bg-[#1c1013] border border-white/10 hover:border-[#dfb56c] text-[#dfb56c] text-[11px] font-mono cursor-pointer transition-all hover:bg-[#540d18]/40"
+                          >
+                            {pr.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Parsed Live Preview Status */}
+                    {editingCampaign.countdownEndDate && (
+                      <div className="p-2.5 rounded bg-black/80 border border-white/10 flex items-center justify-between text-xs font-mono">
+                        <div className="flex items-center gap-2">
+                          {!isNaN(new Date(editingCampaign.countdownEndDate).getTime()) ? (
+                            <>
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                              <span className="text-emerald-400">
+                                Target: {new Date(editingCampaign.countdownEndDate).toLocaleString()}
+                              </span>
+                            </>
+                          ) : (
+                            <>
+                              <Clock className="w-3.5 h-3.5 text-amber-400" />
+                              <span className="text-amber-300">
+                                Typed Target: "{editingCampaign.countdownEndDate}"
+                              </span>
+                            </>
+                          )}
+                        </div>
+                        <span className="text-[10px] text-zinc-400">
+                          Active Countdown Target
+                        </span>
+                      </div>
+                    )}
+                  </div>
 
                     <div>
                       <label className="block text-xs font-mono uppercase text-[#dfb56c] mb-1 font-bold">
-                        Intake Subtitle
+                        Intake Subtitle / ඇතුළත් කරගන්නා කාණ්ඩය
                       </label>
                       <input
                         type="text"
@@ -6339,7 +7559,6 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
                         className="w-full px-3.5 py-2.5 bg-[#140b0e] border border-white/15 rounded text-xs text-white"
                       />
                     </div>
-                  </div>
                 </div>
               )}
 

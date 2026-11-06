@@ -54,6 +54,7 @@ import {
   CampaignLeadFollowUp,
   WhatsAppMessageTemplate,
   BankAccount,
+  CampaignCallOutcomeItem,
 } from '../types';
 import {
   DEFAULT_SITE_SETTINGS,
@@ -77,6 +78,7 @@ import {
   DEFAULT_CAMPAIGN_LEADS,
   DEFAULT_WHATSAPP_TEMPLATES,
   DEFAULT_BANK_ACCOUNTS,
+  DEFAULT_CALL_OUTCOMES,
 } from '../lib/defaults';
 import { useAuth } from './AuthContext';
 import { parseYouTubeVideoId, getYouTubeThumbnailUrl } from '../lib/mediaUtils';
@@ -159,6 +161,7 @@ interface DataContextType {
   deleteFormSubmission: (id: string) => Promise<void>;
   saveCampaign: (campaign: Partial<CampaignPage> & { title: string }) => Promise<void>;
   deleteCampaign: (id: string) => Promise<void>;
+  recordCampaignVisit: (campaignSlugOrId: string) => Promise<void>;
   submitCampaignLead: (campaignSlug: string, leadData: Omit<CampaignLead, 'id' | 'createdAt' | 'status'>) => Promise<CampaignLead>;
   updateCampaignLeadStatus: (id: string, status: CampaignLead['status'], notes?: string) => Promise<void>;
   updateCampaignLead: (id: string, updates: Partial<CampaignLead>) => Promise<void>;
@@ -192,6 +195,10 @@ interface DataContextType {
   deleteBankAccount: (id: string) => Promise<void>;
   setDefaultBankAccount: (id: string) => Promise<void>;
   resetDefaultBankAccounts: () => Promise<void>;
+  callOutcomes: CampaignCallOutcomeItem[];
+  saveCallOutcome: (outcome: Partial<CampaignCallOutcomeItem> & { label: string; labelSinhala?: string }) => Promise<void>;
+  deleteCallOutcome: (id: string) => Promise<void>;
+  resetDefaultCallOutcomes: () => Promise<void>;
   saveStudentReview: (rev: Partial<StudentReviewItem> & { studentName: string; youtubeUrl: string }) => Promise<void>;
   deleteStudentReview: (id: string) => Promise<void>;
   toggleReviewApproval: (id: string, approved: boolean) => Promise<void>;
@@ -358,6 +365,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>(() =>
     loadInitial<BankAccount[]>('css_bank_accounts', DEFAULT_BANK_ACCOUNTS)
   );
+  const [callOutcomes, setCallOutcomes] = useState<CampaignCallOutcomeItem[]>(() =>
+    loadInitial<CampaignCallOutcomeItem[]>('css_call_outcomes', DEFAULT_CALL_OUTCOMES)
+  );
   const [isLoading, setIsLoading] = useState(true);
 
   // 2. Real-Time Cloud Firestore Sync for ALL Content & Backend Changes
@@ -503,6 +513,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     bindSync<CampaignLead>('campaign_leads', setCampaignLeads, DEFAULT_CAMPAIGN_LEADS, (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     bindSync<WhatsAppMessageTemplate>('whatsapp_templates', setWhatsappTemplates, DEFAULT_WHATSAPP_TEMPLATES, (a, b) => (a.order ?? 0) - (b.order ?? 0));
     bindSync<BankAccount>('bank_accounts', setBankAccounts, DEFAULT_BANK_ACCOUNTS, (a, b) => (a.order ?? 0) - (b.order ?? 0));
+    bindSync<CampaignCallOutcomeItem>('call_outcomes', setCallOutcomes, DEFAULT_CALL_OUTCOMES, (a, b) => (a.order ?? 0) - (b.order ?? 0));
 
     // 3. Registrations Persistent Real-Time Sync (Instantaneously updates upon document mutation)
     try {
@@ -1907,6 +1918,54 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     addAuditLog('Campaign Deleted', `Campaign ID ${id} deleted.`);
   };
 
+  const recordCampaignVisit = async (campaignSlugOrId: string) => {
+    if (!campaignSlugOrId) return;
+    const targetCampaign = campaigns.find(
+      (c) => c.slug === campaignSlugOrId || c.id === campaignSlugOrId
+    );
+    if (!targetCampaign) return;
+
+    // Session-based deduplication per campaign to prevent spamming on rapid re-renders
+    const sessionKey = `css_visited_${targetCampaign.id}`;
+    if (typeof window !== 'undefined') {
+      try {
+        const alreadyVisited = sessionStorage.getItem(sessionKey);
+        if (alreadyVisited) return;
+        sessionStorage.setItem(sessionKey, '1');
+      } catch (_) {}
+    }
+
+    const nextViews = (targetCampaign.viewsCount || 0) + 1;
+    setCampaigns((prev) =>
+      prev.map((c) => (c.id === targetCampaign.id ? { ...c, viewsCount: nextViews } : c))
+    );
+
+    try {
+      localStorage.setItem(
+        'css_campaigns',
+        JSON.stringify(
+          campaigns.map((c) =>
+            c.id === targetCampaign.id ? { ...c, viewsCount: nextViews } : c
+          )
+        )
+      );
+    } catch (_) {}
+
+    try {
+      await updateDoc(doc(db, 'campaigns', targetCampaign.id), { viewsCount: nextViews });
+    } catch (_) {
+      try {
+        await setDoc(
+          doc(db, 'campaigns', targetCampaign.id),
+          { viewsCount: nextViews },
+          { merge: true }
+        );
+      } catch (err) {
+        console.warn('Could not increment campaign views in Firestore:', err);
+      }
+    }
+  };
+
   const submitCampaignLead = async (
     campaignSlug: string,
     leadData: Omit<CampaignLead, 'id' | 'createdAt' | 'status'>
@@ -2294,6 +2353,67 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.warn('Error resetting default bank accounts:', e);
     }
     addAuditLog('Bank Accounts Reset', 'Bank accounts restored to default system accounts.');
+  };
+
+  const saveCallOutcome = async (outcome: Partial<CampaignCallOutcomeItem> & { label: string; labelSinhala?: string }) => {
+    const rawLabel = outcome.label.trim();
+    const id = outcome.id || rawLabel.toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_+|_+$/g, '') || `STATUS_${Date.now()}`;
+    const timestamp = new Date().toISOString();
+    const item: CampaignCallOutcomeItem = {
+      id,
+      label: rawLabel,
+      labelSinhala: outcome.labelSinhala?.trim() || rawLabel,
+      badgeBg: outcome.badgeBg || 'bg-amber-950/70',
+      badgeBorder: outcome.badgeBorder || 'border-amber-500/50',
+      badgeText: outcome.badgeText || 'text-amber-300',
+      description: outcome.description?.trim() || undefined,
+      isSystem: outcome.isSystem ?? false,
+      order: outcome.order ?? (callOutcomes.length + 1),
+      updatedAt: timestamp,
+    };
+
+    const nextOutcomes = [...callOutcomes.filter((o) => o.id !== id), item].sort(
+      (a, b) => (a.order ?? 0) - (b.order ?? 0)
+    );
+    setCallOutcomes(nextOutcomes);
+    try {
+      localStorage.setItem('css_call_outcomes', JSON.stringify(nextOutcomes));
+    } catch (_) {}
+    try {
+      await setDoc(doc(db, 'call_outcomes', id), cleanForFirestore(item), { merge: true });
+    } catch (err) {
+      console.warn('Could not save call_outcome to Firestore:', err);
+    }
+    addAuditLog('Call Outcome Saved', `Call Outcome "${item.label}" saved to database.`);
+  };
+
+  const deleteCallOutcome = async (id: string) => {
+    const nextOutcomes = callOutcomes.filter((o) => o.id !== id);
+    setCallOutcomes(nextOutcomes);
+    try {
+      localStorage.setItem('css_call_outcomes', JSON.stringify(nextOutcomes));
+    } catch (_) {}
+    try {
+      await deleteDoc(doc(db, 'call_outcomes', id));
+    } catch (err) {
+      console.warn('Could not delete call_outcome from Firestore:', err);
+    }
+    addAuditLog('Call Outcome Deleted', `Call Outcome ID ${id} deleted.`);
+  };
+
+  const resetDefaultCallOutcomes = async () => {
+    setCallOutcomes(DEFAULT_CALL_OUTCOMES);
+    try {
+      localStorage.setItem('css_call_outcomes', JSON.stringify(DEFAULT_CALL_OUTCOMES));
+    } catch (_) {}
+    try {
+      for (const item of DEFAULT_CALL_OUTCOMES) {
+        await setDoc(doc(db, 'call_outcomes', item.id), cleanForFirestore(item), { merge: true });
+      }
+    } catch (e) {
+      console.warn('Error resetting default call outcomes:', e);
+    }
+    addAuditLog('Call Outcomes Reset', 'Call Outcomes reset to defaults.');
   };
 
   const saveStudentReview = async (rev: Partial<StudentReviewItem> & { studentName: string; youtubeUrl: string }) => {
@@ -3093,6 +3213,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         campaignLeads,
         saveCampaign,
         deleteCampaign,
+        recordCampaignVisit,
         submitCampaignLead,
         updateCampaignLeadStatus,
         updateCampaignLead,
@@ -3110,6 +3231,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         deleteBankAccount,
         setDefaultBankAccount,
         resetDefaultBankAccounts,
+        callOutcomes,
+        saveCallOutcome,
+        deleteCallOutcome,
+        resetDefaultCallOutcomes,
         saveStudentReview,
         deleteStudentReview,
         toggleReviewApproval,

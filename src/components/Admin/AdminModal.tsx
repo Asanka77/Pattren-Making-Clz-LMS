@@ -54,6 +54,8 @@ import {
   Flame,
   KeyRound,
   RefreshCw,
+  Loader2,
+  Star,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
@@ -96,7 +98,7 @@ interface AdminModalProps {
 
 export const LANDING_PAGE_SECTIONS = [
   { id: 'hero', name: '1. Cover / Hero Section', nameSinhala: 'කවරය / ප්‍රධාන Hero අංශය' },
-  { id: 'videos', name: '2. Course Videos & Masterclasses', nameSinhala: 'පාඨමාලා වීඩියෝ' },
+  { id: 'videos', name: '2. Course Videos & Featured Masterclass', nameSinhala: 'විශේෂාංගගත සජීවී වැඩමුළුව සහ පාඨමාලා වීඩියෝ' },
   { id: 'intro', name: '3. Course Introduction & Philosophy', nameSinhala: 'පාඨමාලා හැඳින්වීම' },
   { id: 'whyCourse', name: '4. Why Course Pillars', nameSinhala: 'සුවිශේෂීතා' },
   { id: 'journey', name: '5. 6-Month Curriculum Journey', nameSinhala: 'මාස 6ක ගමන් මග' },
@@ -339,6 +341,138 @@ export const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose, initial
     setTimeout(() => setPinterestSettingsSaved(false), 3500);
   };
 
+  // Featured Masterclass Video State & Handlers
+  const currentFeaturedVideo = useMemo(() => {
+    return videos.find((v) => v.isFeatured && v.isPublished !== false) || videos.find((v) => v.isFeatured) || videos[0] || null;
+  }, [videos]);
+
+  const [featuredVideoForm, setFeaturedVideoForm] = useState({
+    id: '',
+    title: '',
+    titleSinhala: '',
+    descriptionSinhala: '',
+    description: '',
+    youtubeUrl: '',
+    category: 'COURSE INTRODUCTION',
+    categorySinhala: 'පාඨමාලා හැඳින්වීම',
+    duration: '12:30',
+    thumbnailUrl: '',
+    badgeTextSinhala: siteSettings.featuredMasterclassBadgeSinhala || 'විශේෂාංගගත සජීවී වැඩමුළුව (FEATURED ATELIER MASTERCLASS)',
+  });
+  const [isFeaturedFormDirty, setIsFeaturedFormDirty] = useState(false);
+  const [isSavingFeaturedVideo, setIsSavingFeaturedVideo] = useState(false);
+  const [featuredVideoSaveSuccess, setFeaturedVideoSaveSuccess] = useState('');
+
+  useEffect(() => {
+    if (!isFeaturedFormDirty && currentFeaturedVideo) {
+      setFeaturedVideoForm({
+        id: currentFeaturedVideo.id || '',
+        title: currentFeaturedVideo.title || '',
+        titleSinhala: currentFeaturedVideo.titleSinhala || '',
+        descriptionSinhala: currentFeaturedVideo.descriptionSinhala || '',
+        description: currentFeaturedVideo.description || '',
+        youtubeUrl: currentFeaturedVideo.youtubeUrl || '',
+        category: currentFeaturedVideo.category || 'COURSE INTRODUCTION',
+        categorySinhala: currentFeaturedVideo.categorySinhala || 'පාඨමාලා හැඳින්වීම',
+        duration: currentFeaturedVideo.duration || '12:30',
+        thumbnailUrl: currentFeaturedVideo.thumbnailUrl || '',
+        badgeTextSinhala: siteSettings.featuredMasterclassBadgeSinhala || 'විශේෂාංගගත සජීවී වැඩමුළුව (FEATURED ATELIER MASTERCLASS)',
+      });
+    }
+  }, [currentFeaturedVideo, isFeaturedFormDirty, siteSettings.featuredMasterclassBadgeSinhala]);
+
+  const handleSaveFeaturedMasterclass = async () => {
+    setIsSavingFeaturedVideo(true);
+    setFeaturedVideoSaveSuccess('');
+    try {
+      const targetId = featuredVideoForm.id || currentFeaturedVideo?.id || `yt-${Date.now()}`;
+      const videoToSave: Partial<YouTubeVideoItem> & { title: string; youtubeUrl: string } = {
+        id: targetId,
+        title: featuredVideoForm.title.trim() || 'Featured Atelier Masterclass',
+        titleSinhala: featuredVideoForm.titleSinhala.trim() || 'විශේෂාංගගත සජීවී වැඩමුළුව',
+        description: featuredVideoForm.description || '',
+        descriptionSinhala: featuredVideoForm.descriptionSinhala || '',
+        youtubeUrl: featuredVideoForm.youtubeUrl.trim(),
+        category: featuredVideoForm.category || 'COURSE INTRODUCTION',
+        categorySinhala: featuredVideoForm.categorySinhala || 'පාඨමාලා හැඳින්වීම',
+        duration: featuredVideoForm.duration || '12:30',
+        thumbnailUrl: featuredVideoForm.thumbnailUrl || '',
+        isFeatured: true,
+        isPublished: true,
+      };
+
+      await saveYouTubeVideo(videoToSave);
+
+      // Unset isFeatured on any other video
+      for (const v of videos) {
+        if (v.id !== targetId && v.isFeatured) {
+          await saveYouTubeVideo({
+            ...v,
+            isFeatured: false,
+          });
+        }
+      }
+
+      // Also update badge text in siteSettings if modified
+      if (featuredVideoForm.badgeTextSinhala !== siteSettings.featuredMasterclassBadgeSinhala) {
+        await updateSiteSettings({
+          featuredMasterclassBadgeSinhala: featuredVideoForm.badgeTextSinhala,
+        });
+      }
+
+      await addAuditLog('FEATURED_VIDEO_SAVED', `Updated featured masterclass video: ${featuredVideoForm.titleSinhala || featuredVideoForm.title}`);
+      setIsFeaturedFormDirty(false);
+      setFeaturedVideoSaveSuccess('විශේෂාංගගත සජීවී වැඩමුළුව (FEATURED ATELIER MASTERCLASS) වීඩියෝව සාර්ථකව සුරකින ලදී! Landing Page එකේ සජීවීව update විය.');
+      setTimeout(() => setFeaturedVideoSaveSuccess(''), 5000);
+    } catch (err) {
+      console.error(err);
+      setFeaturedVideoSaveSuccess('සුරැකීම අසාර්ථක විය. කරුණාකර නැවත උත්සාහ කරන්න.');
+    } finally {
+      setIsSavingFeaturedVideo(false);
+    }
+  };
+
+  const handleSelectFeaturedVideo = async (selectedId: string) => {
+    const chosen = videos.find((v) => v.id === selectedId);
+    if (!chosen) return;
+    setIsSavingFeaturedVideo(true);
+    try {
+      await saveYouTubeVideo({
+        ...chosen,
+        isFeatured: true,
+        isPublished: true,
+      });
+      for (const v of videos) {
+        if (v.id !== selectedId && v.isFeatured) {
+          await saveYouTubeVideo({
+            ...v,
+            isFeatured: false,
+          });
+        }
+      }
+      setFeaturedVideoForm({
+        id: chosen.id,
+        title: chosen.title || '',
+        titleSinhala: chosen.titleSinhala || '',
+        descriptionSinhala: chosen.descriptionSinhala || '',
+        description: chosen.description || '',
+        youtubeUrl: chosen.youtubeUrl || '',
+        category: chosen.category || 'COURSE INTRODUCTION',
+        categorySinhala: chosen.categorySinhala || 'පාඨමාලා හැඳින්වීම',
+        duration: chosen.duration || '12:30',
+        thumbnailUrl: chosen.thumbnailUrl || '',
+        badgeTextSinhala: siteSettings.featuredMasterclassBadgeSinhala || 'විශේෂාංගගත සජීවී වැඩමුළුව (FEATURED ATELIER MASTERCLASS)',
+      });
+      setIsFeaturedFormDirty(false);
+      setFeaturedVideoSaveSuccess(`"${chosen.titleSinhala || chosen.title}" විශේෂාංගගත වීඩියෝව (Featured Masterclass) ලෙස සාර්ථකව පත් කරන ලදී!`);
+      setTimeout(() => setFeaturedVideoSaveSuccess(''), 5000);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsSavingFeaturedVideo(false);
+    }
+  };
+
   // Settings local form
   const [settingsForm, setSettingsForm] = useState<SiteSettings>(siteSettings);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string>('');
@@ -362,6 +496,73 @@ export const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose, initial
       setSaveSuccessMsg('Failed to save to database. Please check connection.');
     } finally {
       setIsSavingSettings(false);
+    }
+  };
+
+  // Dedicated Instant Save handlers for Brand Logo, Runway Fashion Show, Certificate & Hero Media
+  const [isSavingLogo, setIsSavingLogo] = useState(false);
+  const [logoSaveSuccess, setLogoSaveSuccess] = useState('');
+
+  const [isSavingRunway, setIsSavingRunway] = useState(false);
+  const [runwaySaveSuccess, setRunwaySaveSuccess] = useState('');
+
+  const [isSavingCertificate, setIsSavingCertificate] = useState(false);
+  const [certificateSaveSuccess, setCertificateSaveSuccess] = useState('');
+
+  const [isSavingHero, setIsSavingHero] = useState(false);
+  const [heroSaveSuccess, setHeroSaveSuccess] = useState('');
+
+  const [isSavingMeasurements, setIsSavingMeasurements] = useState(false);
+  const [measurementsSaveSuccess, setMeasurementsSaveSuccess] = useState('');
+
+  const [isSavingBg, setIsSavingBg] = useState(false);
+  const [bgSaveSuccess, setBgSaveSuccess] = useState('');
+
+  const [whyPillarSaveSuccess, setWhyPillarSaveSuccess] = useState('');
+  const [gallerySaveSuccess, setGallerySaveSuccess] = useState('');
+  const [lessonSaveSuccess, setLessonSaveSuccess] = useState('');
+
+  const [isSavingAnnouncement, setIsSavingAnnouncement] = useState(false);
+  const [announcementSaveSuccess, setAnnouncementSaveSuccess] = useState('');
+
+  const [isSavingIntro, setIsSavingIntro] = useState(false);
+  const [introSaveSuccess, setIntroSaveSuccess] = useState('');
+
+  const [isSavingBank, setIsSavingBank] = useState(false);
+  const [bankSaveSuccess, setBankSaveSuccess] = useState('');
+
+  const [isSavingFees, setIsSavingFees] = useState(false);
+  const [feesSaveSuccess, setFeesSaveSuccess] = useState('');
+
+  const [isSavingSocial, setIsSavingSocial] = useState(false);
+  const [socialSaveSuccess, setSocialSaveSuccess] = useState('');
+
+  const [moduleSaveSuccess, setModuleSaveSuccess] = useState('');
+  const [locationSaveSuccess, setLocationSaveSuccess] = useState('');
+  const [faqSaveSuccess, setFaqSaveSuccess] = useState('');
+
+  const handleInstantSaveSection = async (
+    overrideForm: Partial<SiteSettings>,
+    setSavingState: React.Dispatch<React.SetStateAction<boolean>>,
+    setSuccessMsg: React.Dispatch<React.SetStateAction<string>>,
+    successText: string
+  ) => {
+    setSavingState(true);
+    try {
+      const mergedPayload: SiteSettings = {
+        ...settingsForm,
+        ...overrideForm,
+      };
+      setSettingsForm(mergedPayload);
+      await updateSiteSettings(mergedPayload);
+      setHasUserEditedSettings(false);
+      setSuccessMsg(successText);
+      setTimeout(() => setSuccessMsg(''), 4500);
+    } catch (err) {
+      setSuccessMsg('Failed to save to database. Please check connection.');
+      setTimeout(() => setSuccessMsg(''), 4500);
+    } finally {
+      setSavingState(false);
     }
   };
 
@@ -885,8 +1086,8 @@ We look forward to learning and creating with you.`;
               { id: 'modules', label: `Curriculum Modules (${modules.length})`, icon: <Layers className="w-4 h-4" /> },
               {
                 id: 'videos',
-                label: 'Public YouTube Masterclass Videos (Tab 7)',
-                sublabel: `YouTube & Pinterest (${videos.length})`,
+                label: '⭐ Featured Masterclass & Videos (Tab 7)',
+                sublabel: `විශේෂාංගගත සජීවී වැඩමුළුව (${videos.length})`,
                 icon: <Video className="w-4 h-4" />,
                 isTab7: true,
               },
@@ -1470,9 +1671,16 @@ We look forward to learning and creating with you.`;
                       </span>
                     </h3>
                     <p className="text-xs text-[#a89f91] mt-0.5 font-sinhala">
-                      එක් එක් පාඨමාලාවට අදාළව වීඩියෝ (Videos), බාගත හැකි PDF සටහන් සහ තාක්ෂණික මෝස්තර සැලසුම් (Diagrams) මාස අනුව වෙන් වෙන්ව කළමනාකරණය කරන්න.
+                      එක් එක් පාඨමාලාවට අදාළව වීඩියෝ (Videos), බාගත හැකි PDF සටහන් සහ තාක්ෂණික මෝස්තර සැලසුම් (Diagrams) මාස අනුව වෙන් වෙන්ව කළමනාකරණය කරන්න. (All changes save instantly to Firestore database).
                     </p>
                   </div>
+
+                {lessonSaveSuccess && (
+                  <div className="p-3 rounded bg-emerald-950/80 border border-emerald-500/60 text-emerald-300 text-xs font-mono flex items-center gap-2 shadow w-full">
+                    <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>{lessonSaveSuccess}</span>
+                  </div>
+                )}
 
                   <button
                     onClick={() => {
@@ -1950,35 +2158,66 @@ We look forward to learning and creating with you.`;
               </div>
 
               {/* BRAND IDENTITY & CUSTOM LOGO CMS */}
-              <div className="p-5 rounded-sm bg-[#0c090a] border border-[#c99a45]/30 space-y-4">
-                <div className="flex items-center justify-between">
+              <div className="p-5 rounded-sm bg-[#0c090a] border-2 border-[#c99a45]/50 space-y-4 shadow-xl">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-3">
                   <div className="flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-[#dfb56c]" />
-                    <span className="text-xs uppercase font-mono text-[#dfb56c] font-bold">
-                      Brand Logo &amp; Identity (Backend Logo Manager)
-                    </span>
+                    <Sparkles className="w-5 h-5 text-[#dfb56c]" />
+                    <div>
+                      <span className="text-xs uppercase font-mono text-[#dfb56c] font-bold block">
+                        Brand Logo &amp; Identity (Backend Logo Manager)
+                      </span>
+                      <span className="text-[10px] text-[#a89f91] font-mono">
+                        {settingsForm.logoUrl ? '✓ Custom Brand Logo Active • Live Synced' : 'Default Monogram Badge Active'}
+                      </span>
+                    </div>
                   </div>
-                  <span className="text-[10px] text-[#a89f91] font-mono">
-                    {settingsForm.logoUrl ? '✓ Custom Logo Active' : 'Default Monogram Active'}
-                  </span>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={isSavingLogo}
+                      onClick={() =>
+                        handleInstantSaveSection(
+                          { brandName: settingsForm.brandName, logoUrl: settingsForm.logoUrl },
+                          setIsSavingLogo,
+                          setLogoSaveSuccess,
+                          '✓ Brand Logo & Name saved to Firestore database & live on website!'
+                        )
+                      }
+                      className="px-4 py-2 bg-gradient-to-r from-[#dfb56c] to-[#c99a45] hover:brightness-110 text-black font-mono font-bold text-xs uppercase rounded flex items-center gap-1.5 shadow-lg cursor-pointer transition-all disabled:opacity-50"
+                    >
+                      <Save className="w-3.5 h-3.5" />
+                      <span>{isSavingLogo ? 'Saving to Database...' : 'Save Brand Logo (දැන්ම සුරකින්න)'}</span>
+                    </button>
+                  </div>
                 </div>
+
+                {logoSaveSuccess && (
+                  <div className="p-2.5 rounded bg-emerald-950/80 border border-emerald-500/60 text-emerald-300 text-xs font-mono flex items-center gap-2 shadow">
+                    <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>{logoSaveSuccess}</span>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-[11px] text-[#a89f91] mb-1 font-mono">
+                    <label className="block text-[11px] text-[#a89f91] mb-1 font-mono font-bold">
                       Brand Name (Displayed in Header / Footer)
                     </label>
                     <input
                       type="text"
                       value={settingsForm.brandName || ''}
                       placeholder="e.g. CEYLON STYLE STUDIO"
-                      onChange={(e) => setSettingsForm({ ...settingsForm, brandName: e.target.value })}
+                      onChange={(e) => {
+                        setSettingsForm({ ...settingsForm, brandName: e.target.value });
+                        setHasUserEditedSettings(true);
+                      }}
                       className="w-full px-3 py-2 bg-[#141011] border border-white/10 rounded text-xs text-[#f7f3eb] focus:border-[#dfb56c] outline-none"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[11px] text-[#a89f91] mb-1 font-mono">
+                    <label className="block text-[11px] text-[#a89f91] mb-1 font-mono font-bold">
                       Logo Image URL (Direct Link to Image)
                     </label>
                     <input
@@ -2021,7 +2260,8 @@ We look forward to learning and creating with you.`;
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <label className="btn-3d-secondary px-3 py-1.5 text-xs rounded cursor-pointer">
+                    <label className="btn-3d-secondary px-3 py-1.5 text-xs rounded cursor-pointer flex items-center gap-1.5 bg-[#1e1316] border border-[#dfb56c]/50 text-[#dfb56c] hover:bg-[#dfb56c] hover:text-black transition-all">
+                      <Upload className="w-3.5 h-3.5" />
                       <span>Upload Logo File</span>
                       <input
                         type="file"
@@ -2032,15 +2272,23 @@ We look forward to learning and creating with you.`;
                           if (file) {
                             try {
                               const compressed = await compressImage(file, 360, 360, 0.9);
-                              setSettingsForm({ ...settingsForm, logoUrl: compressed });
-                              setHasUserEditedSettings(true);
+                              await handleInstantSaveSection(
+                                { logoUrl: compressed, brandName: settingsForm.brandName },
+                                setIsSavingLogo,
+                                setLogoSaveSuccess,
+                                '✓ Logo uploaded, saved to Firestore database & live on website!'
+                              );
                             } catch (_) {
                               const reader = new FileReader();
-                              reader.onload = (ev) => {
+                              reader.onload = async (ev) => {
                                 const res = ev.target?.result as string;
                                 if (res) {
-                                  setSettingsForm({ ...settingsForm, logoUrl: res });
-                                  setHasUserEditedSettings(true);
+                                  await handleInstantSaveSection(
+                                    { logoUrl: res, brandName: settingsForm.brandName },
+                                    setIsSavingLogo,
+                                    setLogoSaveSuccess,
+                                    '✓ Logo uploaded, saved to Firestore database & live on website!'
+                                  );
                                 }
                               };
                               reader.readAsDataURL(file);
@@ -2053,11 +2301,15 @@ We look forward to learning and creating with you.`;
                     {settingsForm.logoUrl && (
                       <button
                         type="button"
-                        onClick={() => {
-                          setSettingsForm({ ...settingsForm, logoUrl: '' });
-                          setHasUserEditedSettings(true);
+                        onClick={async () => {
+                          await handleInstantSaveSection(
+                            { logoUrl: '' },
+                            setIsSavingLogo,
+                            setLogoSaveSuccess,
+                            '✓ Logo reset, saved to database & default monogram restored!'
+                          );
                         }}
-                        className="btn-3d-secondary px-3 py-1.5 text-xs text-red-400 rounded cursor-pointer"
+                        className="btn-3d-secondary px-3 py-1.5 text-xs text-red-400 hover:text-red-300 rounded border border-red-500/20 bg-red-950/20 cursor-pointer"
                       >
                         Reset Logo
                       </button>
@@ -2082,10 +2334,41 @@ We look forward to learning and creating with you.`;
                       </span>
                     </div>
                   </div>
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#540d18] text-[#f7e2a9] border border-[#dfb56c]/40 font-bold">
-                    Official Certificate CMS
-                  </span>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={isSavingCertificate}
+                      onClick={() =>
+                        handleInstantSaveSection(
+                          {
+                            courseCertificateImageUrl: settingsForm.courseCertificateImageUrl,
+                            courseCertificateTitle: settingsForm.courseCertificateTitle,
+                            courseCertificateTitleSinhala: settingsForm.courseCertificateTitleSinhala,
+                            courseCertificateSubtitle: settingsForm.courseCertificateSubtitle,
+                            courseCertificateSubtitleSinhala: settingsForm.courseCertificateSubtitleSinhala,
+                            courseCertificateDescription: settingsForm.courseCertificateDescription,
+                            courseCertificateDescriptionSinhala: settingsForm.courseCertificateDescriptionSinhala,
+                          },
+                          setIsSavingCertificate,
+                          setCertificateSaveSuccess,
+                          '✓ Course Certificate Showcase saved to Firestore database & live on website!'
+                        )
+                      }
+                      className="px-4 py-2 bg-gradient-to-r from-[#dfb56c] to-[#c99a45] hover:brightness-110 text-black font-mono font-bold text-xs uppercase rounded flex items-center gap-1.5 shadow-lg cursor-pointer transition-all disabled:opacity-50"
+                    >
+                      <Save className="w-3.5 h-3.5" />
+                      <span>{isSavingCertificate ? 'Saving...' : 'Save Certificate (දැන්ම සුරකින්න)'}</span>
+                    </button>
+                  </div>
                 </div>
+
+                {certificateSaveSuccess && (
+                  <div className="p-2.5 rounded bg-emerald-950/80 border border-emerald-500/60 text-emerald-300 text-xs font-mono flex items-center gap-2 shadow">
+                    <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>{certificateSaveSuccess}</span>
+                  </div>
+                )}
 
                 {/* Certificate Image Upload & Preview */}
                 <div className="p-4 rounded bg-[#141011] border border-white/10 space-y-4">
@@ -2120,16 +2403,24 @@ We look forward to learning and creating with you.`;
                                 const file = e.target.files?.[0];
                                 if (file) {
                                   try {
-                                    const compressed = await compressImage(file, 1400, 1000, 0.88);
-                                    setSettingsForm({ ...settingsForm, courseCertificateImageUrl: compressed });
-                                    setHasUserEditedSettings(true);
+                                    const compressed = await compressImage(file, 1200, 800, 0.82);
+                                    await handleInstantSaveSection(
+                                      { courseCertificateImageUrl: compressed },
+                                      setIsSavingCertificate,
+                                      setCertificateSaveSuccess,
+                                      '✓ Certificate photo uploaded, saved to Firestore database & live on website!'
+                                    );
                                   } catch (_) {
                                     const reader = new FileReader();
-                                    reader.onload = (ev) => {
+                                    reader.onload = async (ev) => {
                                       const res = ev.target?.result as string;
                                       if (res) {
-                                        setSettingsForm({ ...settingsForm, courseCertificateImageUrl: res });
-                                        setHasUserEditedSettings(true);
+                                        await handleInstantSaveSection(
+                                          { courseCertificateImageUrl: res },
+                                          setIsSavingCertificate,
+                                          setCertificateSaveSuccess,
+                                          '✓ Certificate photo uploaded, saved to Firestore database & live on website!'
+                                        );
                                       }
                                     };
                                     reader.readAsDataURL(file);
@@ -2142,9 +2433,13 @@ We look forward to learning and creating with you.`;
                           {settingsForm.courseCertificateImageUrl && (
                             <button
                               type="button"
-                              onClick={() => {
-                                setSettingsForm({ ...settingsForm, courseCertificateImageUrl: '' });
-                                setHasUserEditedSettings(true);
+                              onClick={async () => {
+                                await handleInstantSaveSection(
+                                  { courseCertificateImageUrl: '' },
+                                  setIsSavingCertificate,
+                                  setCertificateSaveSuccess,
+                                  '✓ Certificate photo reset & saved to database!'
+                                );
                               }}
                               className="px-3 py-1.5 text-xs text-red-400 hover:text-red-300 rounded border border-red-500/20 bg-red-950/20 cursor-pointer"
                             >
@@ -2269,13 +2564,41 @@ We look forward to learning and creating with you.`;
                       />
                     </div>
                   </div>
+
+                  {/* Bottom Save Action Button */}
+                  <div className="pt-3 border-t border-white/10 flex justify-end">
+                    <button
+                      type="button"
+                      disabled={isSavingCertificate}
+                      onClick={() =>
+                        handleInstantSaveSection(
+                          {
+                            courseCertificateImageUrl: settingsForm.courseCertificateImageUrl,
+                            courseCertificateTitle: settingsForm.courseCertificateTitle,
+                            courseCertificateTitleSinhala: settingsForm.courseCertificateTitleSinhala,
+                            courseCertificateSubtitle: settingsForm.courseCertificateSubtitle,
+                            courseCertificateSubtitleSinhala: settingsForm.courseCertificateSubtitleSinhala,
+                            courseCertificateDescription: settingsForm.courseCertificateDescription,
+                            courseCertificateDescriptionSinhala: settingsForm.courseCertificateDescriptionSinhala,
+                          },
+                          setIsSavingCertificate,
+                          setCertificateSaveSuccess,
+                          '✓ Course Certificate Showcase saved to Firestore database & live on website!'
+                        )
+                      }
+                      className="px-5 py-2.5 bg-gradient-to-r from-[#dfb56c] to-[#c99a45] hover:brightness-110 text-black font-mono font-bold text-xs uppercase rounded flex items-center gap-1.5 shadow-lg cursor-pointer transition-all disabled:opacity-50"
+                    >
+                      <Save className="w-4 h-4" />
+                      <span>{isSavingCertificate ? 'Saving...' : 'Save Certificate (දැන්ම සුරකින්න)'}</span>
+                    </button>
+                  </div>
                 </div>
               </div>
 
               {/* ======================================================== */}
               {/* GRAND RUNWAY FASHION SHOW SHOWCASE CMS (පාඨමාලාවෙන් පසු විලාසිතා දැක්ම) */}
               {/* ======================================================== */}
-              <div className="p-5 rounded-sm bg-[#0c090a] border-2 border-[#dfb56c]/40 space-y-5 shadow-xl">
+              <div className="p-5 rounded-sm bg-[#0c090a] border-2 border-[#dfb56c]/50 space-y-5 shadow-xl">
                 <div className="flex flex-wrap items-center justify-between border-b border-white/10 pb-3 gap-2">
                   <div className="flex items-center gap-2">
                     <Sparkles className="w-5 h-5 text-[#dfb56c]" />
@@ -2288,10 +2611,43 @@ We look forward to learning and creating with you.`;
                       </span>
                     </div>
                   </div>
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#38070e] text-[#f7e2a9] border border-[#dfb56c]/40 font-bold">
-                    Runway Gala CMS
-                  </span>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={isSavingRunway}
+                      onClick={() =>
+                        handleInstantSaveSection(
+                          {
+                            fashionShowImageUrl: settingsForm.fashionShowImageUrl,
+                            fashionShowTitle: settingsForm.fashionShowTitle,
+                            fashionShowTitleSinhala: settingsForm.fashionShowTitleSinhala,
+                            fashionShowSubtitle: settingsForm.fashionShowSubtitle,
+                            fashionShowSubtitleSinhala: settingsForm.fashionShowSubtitleSinhala,
+                            fashionShowDescription: settingsForm.fashionShowDescription,
+                            fashionShowDescriptionSinhala: settingsForm.fashionShowDescriptionSinhala,
+                            fashionShowDateVenue: settingsForm.fashionShowDateVenue,
+                            fashionShowDateVenueSinhala: settingsForm.fashionShowDateVenueSinhala,
+                          },
+                          setIsSavingRunway,
+                          setRunwaySaveSuccess,
+                          '✓ Fashion Show CMS saved to Firestore database & live on website!'
+                        )
+                      }
+                      className="px-4 py-2 bg-gradient-to-r from-[#dfb56c] to-[#c99a45] hover:brightness-110 text-black font-mono font-bold text-xs uppercase rounded flex items-center gap-1.5 shadow-lg cursor-pointer transition-all disabled:opacity-50"
+                    >
+                      <Save className="w-3.5 h-3.5" />
+                      <span>{isSavingRunway ? 'Saving to Database...' : 'Save Fashion Show (දැන්ම සුරකින්න)'}</span>
+                    </button>
+                  </div>
                 </div>
+
+                {runwaySaveSuccess && (
+                  <div className="p-2.5 rounded bg-emerald-950/80 border border-emerald-500/60 text-emerald-300 text-xs font-mono flex items-center gap-2 shadow">
+                    <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>{runwaySaveSuccess}</span>
+                  </div>
+                )}
 
                 {/* Fashion Show Image Upload & Preview */}
                 <div className="p-4 rounded bg-[#141011] border border-white/10 space-y-4">
@@ -2326,16 +2682,24 @@ We look forward to learning and creating with you.`;
                                 const file = e.target.files?.[0];
                                 if (file) {
                                   try {
-                                    const compressed = await compressImage(file, 1400, 1000, 0.88);
-                                    setSettingsForm({ ...settingsForm, fashionShowImageUrl: compressed });
-                                    setHasUserEditedSettings(true);
+                                    const compressed = await compressImage(file, 1200, 800, 0.82);
+                                    await handleInstantSaveSection(
+                                      { fashionShowImageUrl: compressed },
+                                      setIsSavingRunway,
+                                      setRunwaySaveSuccess,
+                                      '✓ Runway photo uploaded, saved to Firestore database & live on website!'
+                                    );
                                   } catch (_) {
                                     const reader = new FileReader();
-                                    reader.onload = (ev) => {
+                                    reader.onload = async (ev) => {
                                       const res = ev.target?.result as string;
                                       if (res) {
-                                        setSettingsForm({ ...settingsForm, fashionShowImageUrl: res });
-                                        setHasUserEditedSettings(true);
+                                        await handleInstantSaveSection(
+                                          { fashionShowImageUrl: res },
+                                          setIsSavingRunway,
+                                          setRunwaySaveSuccess,
+                                          '✓ Runway photo uploaded, saved to Firestore database & live on website!'
+                                        );
                                       }
                                     };
                                     reader.readAsDataURL(file);
@@ -2348,9 +2712,13 @@ We look forward to learning and creating with you.`;
                           {settingsForm.fashionShowImageUrl && (
                             <button
                               type="button"
-                              onClick={() => {
-                                setSettingsForm({ ...settingsForm, fashionShowImageUrl: '' });
-                                setHasUserEditedSettings(true);
+                              onClick={async () => {
+                                await handleInstantSaveSection(
+                                  { fashionShowImageUrl: '' },
+                                  setIsSavingRunway,
+                                  setRunwaySaveSuccess,
+                                  '✓ Runway photo reset & saved to database!'
+                                );
                               }}
                               className="px-3 py-1.5 text-xs text-red-400 hover:text-red-300 rounded border border-red-500/20 bg-red-950/20 cursor-pointer"
                             >
@@ -2414,7 +2782,7 @@ We look forward to learning and creating with you.`;
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="block text-[10px] text-[#a89f91] font-mono uppercase mb-1">
-                        Venue & Date (Sinhala)
+                        Venue &amp; Date (Sinhala)
                       </label>
                       <input
                         type="text"
@@ -2429,7 +2797,7 @@ We look forward to learning and creating with you.`;
 
                     <div>
                       <label className="block text-[10px] text-[#a89f91] font-mono uppercase mb-1">
-                        Venue & Date (English)
+                        Venue &amp; Date (English)
                       </label>
                       <input
                         type="text"
@@ -2475,6 +2843,36 @@ We look forward to learning and creating with you.`;
                       />
                     </div>
                   </div>
+
+                  {/* Bottom Save Action Button */}
+                  <div className="pt-3 border-t border-white/10 flex justify-end">
+                    <button
+                      type="button"
+                      disabled={isSavingRunway}
+                      onClick={() =>
+                        handleInstantSaveSection(
+                          {
+                            fashionShowImageUrl: settingsForm.fashionShowImageUrl,
+                            fashionShowTitle: settingsForm.fashionShowTitle,
+                            fashionShowTitleSinhala: settingsForm.fashionShowTitleSinhala,
+                            fashionShowSubtitle: settingsForm.fashionShowSubtitle,
+                            fashionShowSubtitleSinhala: settingsForm.fashionShowSubtitleSinhala,
+                            fashionShowDescription: settingsForm.fashionShowDescription,
+                            fashionShowDescriptionSinhala: settingsForm.fashionShowDescriptionSinhala,
+                            fashionShowDateVenue: settingsForm.fashionShowDateVenue,
+                            fashionShowDateVenueSinhala: settingsForm.fashionShowDateVenueSinhala,
+                          },
+                          setIsSavingRunway,
+                          setRunwaySaveSuccess,
+                          '✓ Fashion Show CMS saved to Firestore database & live on website!'
+                        )
+                      }
+                      className="px-5 py-2.5 bg-gradient-to-r from-[#dfb56c] to-[#c99a45] hover:brightness-110 text-black font-mono font-bold text-xs uppercase rounded flex items-center gap-1.5 shadow-lg cursor-pointer transition-all disabled:opacity-50"
+                    >
+                      <Save className="w-4 h-4" />
+                      <span>{isSavingRunway ? 'Saving...' : 'Save Runway Fashion Show (දැන්ම සුරකින්න)'}</span>
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -2495,10 +2893,27 @@ We look forward to learning and creating with you.`;
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <button
                       type="button"
-                      onClick={() => {
+                      disabled={isSavingMeasurements}
+                      onClick={() =>
+                        handleInstantSaveSection(
+                          { bodyMeasurements: settingsForm.bodyMeasurements && settingsForm.bodyMeasurements.length > 0 ? settingsForm.bodyMeasurements : DEFAULT_BODY_MEASUREMENTS },
+                          setIsSavingMeasurements,
+                          setMeasurementsSaveSuccess,
+                          '✓ Body Measurements saved to Firestore database & live on website!'
+                        )
+                      }
+                      className="px-4 py-2 bg-gradient-to-r from-[#dfb56c] to-[#c99a45] hover:brightness-110 text-black font-mono font-bold text-xs uppercase rounded flex items-center gap-1.5 shadow-lg cursor-pointer transition-all disabled:opacity-50"
+                    >
+                      <Save className="w-3.5 h-3.5" />
+                      <span>{isSavingMeasurements ? 'Saving...' : 'Save Body Measurements (දැන්ම සුරකින්න)'}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={async () => {
                         const current = settingsForm.bodyMeasurements && settingsForm.bodyMeasurements.length > 0
                           ? settingsForm.bodyMeasurements
                           : [...DEFAULT_BODY_MEASUREMENTS];
@@ -2517,8 +2932,14 @@ We look forward to learning and creating with you.`;
                           patternImpact: 'Crucial for accurate garment ease distribution and pattern balance.',
                           patternImpactSinhala: 'පැටර්නයේ නිවැරදි ලිහිල් බව සහ හැඩය රැඳවීමට උපකාරී වේ.',
                         };
-                        setSettingsForm({ ...settingsForm, bodyMeasurements: [newItem, ...current] });
-                        setHasUserEditedSettings(true);
+                        const updated = [newItem, ...current];
+                        setSettingsForm({ ...settingsForm, bodyMeasurements: updated });
+                        await handleInstantSaveSection(
+                          { bodyMeasurements: updated },
+                          setIsSavingMeasurements,
+                          setMeasurementsSaveSuccess,
+                          '✓ New measurement added and saved to database!'
+                        );
                       }}
                       className="px-3 py-1.5 rounded bg-[#dfb56c] text-[#0c090a] font-bold text-xs hover:bg-[#f7e2a9] transition-all flex items-center gap-1.5 cursor-pointer"
                     >
@@ -2528,10 +2949,15 @@ We look forward to learning and creating with you.`;
 
                     <button
                       type="button"
-                      onClick={() => {
+                      onClick={async () => {
                         if (confirm('Reset all body measurements back to the 10 master tailoring defaults?')) {
                           setSettingsForm({ ...settingsForm, bodyMeasurements: [...DEFAULT_BODY_MEASUREMENTS] });
-                          setHasUserEditedSettings(true);
+                          await handleInstantSaveSection(
+                            { bodyMeasurements: [...DEFAULT_BODY_MEASUREMENTS] },
+                            setIsSavingMeasurements,
+                            setMeasurementsSaveSuccess,
+                            '✓ Reset to default 10 Body Measurements and saved to database!'
+                          );
                         }
                       }}
                       className="px-3 py-1.5 rounded bg-[#1e1316] text-[#dfb56c] border border-[#dfb56c]/30 text-xs hover:bg-[#38070e] transition-all flex items-center gap-1 cursor-pointer"
@@ -2541,6 +2967,13 @@ We look forward to learning and creating with you.`;
                     </button>
                   </div>
                 </div>
+
+                {measurementsSaveSuccess && (
+                  <div className="p-3 rounded bg-emerald-950/80 border border-emerald-500/60 text-emerald-300 text-xs font-mono flex items-center gap-2 shadow">
+                    <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>{measurementsSaveSuccess}</span>
+                  </div>
+                )}
 
                 <p className="text-xs text-[#a89f91] font-sinhala">
                   මෙහි ඇති ඕනෑම ශරීර මිණුමක ඡායාරූපය (Guide Image), නම (English/Sinhala), මිණිය යුතු ආකාරය (How to measure), උපදෙස් (Tailor tips) සහ පැටර්නයට බලපාන ආකාරය පහසුවෙන් Upload කර වෙනස් කළ හැක. පරිශීලකයා Studio එකේදී මෙම මිණුම තේරූ විට මෙම ඡායාරූපය හා විස්තර ක්ෂණිකව දිස්වේ.
@@ -2581,10 +3014,15 @@ We look forward to learning and creating with you.`;
                                         : [...DEFAULT_BODY_MEASUREMENTS];
                                       current[index] = { ...bm, imageUrl: compressed };
                                       setSettingsForm({ ...settingsForm, bodyMeasurements: current });
-                                      setHasUserEditedSettings(true);
+                                      await handleInstantSaveSection(
+                                        { bodyMeasurements: current },
+                                        setIsSavingMeasurements,
+                                        setMeasurementsSaveSuccess,
+                                        `✓ Guide image for "${bm.nameSinhala || bm.name}" saved to Firestore database & live on website!`
+                                      );
                                     } catch (_) {
                                       const reader = new FileReader();
-                                      reader.onload = (ev) => {
+                                      reader.onload = async (ev) => {
                                         const res = ev.target?.result as string;
                                         if (res) {
                                           const current = settingsForm.bodyMeasurements && settingsForm.bodyMeasurements.length > 0
@@ -2592,7 +3030,12 @@ We look forward to learning and creating with you.`;
                                             : [...DEFAULT_BODY_MEASUREMENTS];
                                           current[index] = { ...bm, imageUrl: res };
                                           setSettingsForm({ ...settingsForm, bodyMeasurements: current });
-                                          setHasUserEditedSettings(true);
+                                          await handleInstantSaveSection(
+                                            { bodyMeasurements: current },
+                                            setIsSavingMeasurements,
+                                            setMeasurementsSaveSuccess,
+                                            `✓ Guide image for "${bm.nameSinhala || bm.name}" saved to Firestore database & live on website!`
+                                          );
                                         }
                                       };
                                       reader.readAsDataURL(file);
@@ -2637,10 +3080,15 @@ We look forward to learning and creating with you.`;
                                       : [...DEFAULT_BODY_MEASUREMENTS];
                                     current[index] = { ...bm, imageUrl: compressed };
                                     setSettingsForm({ ...settingsForm, bodyMeasurements: current });
-                                    setHasUserEditedSettings(true);
+                                    await handleInstantSaveSection(
+                                      { bodyMeasurements: current },
+                                      setIsSavingMeasurements,
+                                      setMeasurementsSaveSuccess,
+                                      `✓ Guide image for "${bm.nameSinhala || bm.name}" saved to Firestore database & live on website!`
+                                    );
                                   } catch (_) {
                                     const reader = new FileReader();
-                                    reader.onload = (ev) => {
+                                    reader.onload = async (ev) => {
                                       const res = ev.target?.result as string;
                                       if (res) {
                                         const current = settingsForm.bodyMeasurements && settingsForm.bodyMeasurements.length > 0
@@ -2648,7 +3096,12 @@ We look forward to learning and creating with you.`;
                                           : [...DEFAULT_BODY_MEASUREMENTS];
                                         current[index] = { ...bm, imageUrl: res };
                                         setSettingsForm({ ...settingsForm, bodyMeasurements: current });
-                                        setHasUserEditedSettings(true);
+                                        await handleInstantSaveSection(
+                                          { bodyMeasurements: current },
+                                          setIsSavingMeasurements,
+                                          setMeasurementsSaveSuccess,
+                                          `✓ Guide image for "${bm.nameSinhala || bm.name}" saved to Firestore database & live on website!`
+                                        );
                                       }
                                     };
                                     reader.readAsDataURL(file);
@@ -2661,7 +3114,7 @@ We look forward to learning and creating with you.`;
                           {/* Delete measurement */}
                           <button
                             type="button"
-                            onClick={() => {
+                            onClick={async () => {
                               const current = settingsForm.bodyMeasurements && settingsForm.bodyMeasurements.length > 0
                                 ? [...settingsForm.bodyMeasurements]
                                 : [...DEFAULT_BODY_MEASUREMENTS];
@@ -2671,7 +3124,12 @@ We look forward to learning and creating with you.`;
                               }
                               const filtered = current.filter((_, i) => i !== index);
                               setSettingsForm({ ...settingsForm, bodyMeasurements: filtered });
-                              setHasUserEditedSettings(true);
+                              await handleInstantSaveSection(
+                                { bodyMeasurements: filtered },
+                                setIsSavingMeasurements,
+                                setMeasurementsSaveSuccess,
+                                '✓ Body Measurement deleted and database updated!'
+                              );
                             }}
                             className="p-1.5 rounded text-red-400 hover:text-red-300 hover:bg-red-950/40 border border-transparent hover:border-red-500/20 transition-all cursor-pointer"
                             title="Delete Measurement"
@@ -2868,21 +3326,74 @@ We look forward to learning and creating with you.`;
                     </div>
                   ))}
                 </div>
+
+                {/* Bottom save button for body measurements */}
+                <div className="pt-3 border-t border-white/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <span className="text-[11px] text-[#a89f91] font-mono">
+                    {(settingsForm.bodyMeasurements || DEFAULT_BODY_MEASUREMENTS).length} Measurements configured. Changes sync to Pattern &amp; Dummy Studio instantly.
+                  </span>
+                  <button
+                    type="button"
+                    disabled={isSavingMeasurements}
+                    onClick={() =>
+                      handleInstantSaveSection(
+                        { bodyMeasurements: settingsForm.bodyMeasurements && settingsForm.bodyMeasurements.length > 0 ? settingsForm.bodyMeasurements : DEFAULT_BODY_MEASUREMENTS },
+                        setIsSavingMeasurements,
+                        setMeasurementsSaveSuccess,
+                        '✓ All Body Measurements saved to Firestore database & live on website!'
+                      )
+                    }
+                    className="px-5 py-2.5 bg-gradient-to-r from-[#dfb56c] to-[#c99a45] hover:brightness-110 text-black font-mono font-bold text-xs uppercase rounded flex items-center gap-1.5 shadow-lg cursor-pointer transition-all disabled:opacity-50"
+                  >
+                    <Save className="w-4 h-4" />
+                    <span>{isSavingMeasurements ? 'Saving...' : 'Save All Body Measurements (සියල්ල සුරකින්න)'}</span>
+                  </button>
+                </div>
               </div>
 
               {/* FULL LANDING PAGE TOTAL BACKGROUND IMAGE & COLOR CMS */}
               <div className="p-5 rounded-sm bg-[#0c090a] border border-[#c99a45]/30 space-y-4">
-                <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                <div className="flex flex-wrap items-center justify-between border-b border-white/10 pb-2 gap-2">
                   <div className="flex items-center gap-2">
                     <Palette className="w-4 h-4 text-[#dfb56c]" />
                     <span className="text-xs uppercase font-mono text-[#dfb56c] font-bold">
                       Full Landing Page Total Background Image &amp; Theme Colors
                     </span>
                   </div>
-                  <span className="text-[10px] text-[#a89f91] font-mono">
-                    {settingsForm.pageBgImageUrl ? '✓ Custom Full-Page Background Active' : 'Default Atelier Dark Active'}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={isSavingBg}
+                      onClick={() =>
+                        handleInstantSaveSection(
+                          {
+                            pageBgImageUrl: settingsForm.pageBgImageUrl,
+                            pageBgOverlayOpacity: settingsForm.pageBgOverlayOpacity,
+                            sectionGapSize: settingsForm.sectionGapSize,
+                            sectionGlassmorphism: settingsForm.sectionGlassmorphism,
+                            sectionBgOverlayOpacity: settingsForm.sectionBgOverlayOpacity,
+                            sectionBgImages: settingsForm.sectionBgImages,
+                            pageTextColor: settingsForm.pageTextColor,
+                          },
+                          setIsSavingBg,
+                          setBgSaveSuccess,
+                          '✓ Background & Theme settings saved to Firestore database & live on website!'
+                        )
+                      }
+                      className="px-4 py-2 bg-gradient-to-r from-[#dfb56c] to-[#c99a45] hover:brightness-110 text-black font-mono font-bold text-xs uppercase rounded flex items-center gap-1.5 shadow-lg cursor-pointer transition-all disabled:opacity-50"
+                    >
+                      <Save className="w-3.5 h-3.5" />
+                      <span>{isSavingBg ? 'Saving...' : 'Save Backgrounds & Colors (දැන්ම සුරකින්න)'}</span>
+                    </button>
+                  </div>
                 </div>
+
+                {bgSaveSuccess && (
+                  <div className="p-2.5 rounded bg-emerald-950/80 border border-emerald-500/60 text-emerald-300 text-xs font-mono flex items-center gap-2 shadow">
+                    <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>{bgSaveSuccess}</span>
+                  </div>
+                )}
 
                 <p className="text-xs text-[#a89f91]">
                   Set a luxury full-screen background image behind the entire landing page, adjust overlay darkness for perfect readability, and customize text colors.
@@ -2981,14 +3492,24 @@ We look forward to learning and creating with you.`;
                             try {
                               const compressed = await compressImage(file, 1920, 1080, 0.82);
                               setSettingsForm({ ...settingsForm, pageBgImageUrl: compressed });
-                              setHasUserEditedSettings(true);
+                              await handleInstantSaveSection(
+                                { pageBgImageUrl: compressed },
+                                setIsSavingBg,
+                                setBgSaveSuccess,
+                                '✓ Full Page Background uploaded, saved to Firestore database & live on website!'
+                              );
                             } catch (_) {
                               const reader = new FileReader();
-                              reader.onload = (ev) => {
+                              reader.onload = async (ev) => {
                                 const res = ev.target?.result as string;
                                 if (res) {
                                   setSettingsForm({ ...settingsForm, pageBgImageUrl: res });
-                                  setHasUserEditedSettings(true);
+                                  await handleInstantSaveSection(
+                                    { pageBgImageUrl: res },
+                                    setIsSavingBg,
+                                    setBgSaveSuccess,
+                                    '✓ Full Page Background uploaded, saved to Firestore database & live on website!'
+                                  );
                                 }
                               };
                               reader.readAsDataURL(file);
@@ -3001,9 +3522,14 @@ We look forward to learning and creating with you.`;
                     {settingsForm.pageBgImageUrl && (
                       <button
                         type="button"
-                        onClick={() => {
+                        onClick={async () => {
                           setSettingsForm({ ...settingsForm, pageBgImageUrl: '' });
-                          setHasUserEditedSettings(true);
+                          await handleInstantSaveSection(
+                            { pageBgImageUrl: '' },
+                            setIsSavingBg,
+                            setBgSaveSuccess,
+                            '✓ Full Page Background reset to default and saved to database!'
+                          );
                         }}
                         className="btn-3d-secondary px-3 py-1.5 text-xs text-red-400 rounded cursor-pointer"
                       >
@@ -3096,27 +3622,49 @@ We look forward to learning and creating with you.`;
                       </span>
                     </div>
 
-                    {/* Section Dark Overlay Opacity */}
-                    <div className="flex items-center gap-2 text-xs font-mono">
-                      <span className="text-[#a89f91] text-[11px]">Section Dark Overlay:</span>
-                      <strong className="text-[#dfb56c]">
-                        {settingsForm.sectionBgOverlayOpacity ?? 65}%
-                      </strong>
-                      <input
-                        type="range"
-                        min={20}
-                        max={90}
-                        step={5}
-                        value={settingsForm.sectionBgOverlayOpacity ?? 65}
-                        onChange={(e) => {
-                          setSettingsForm({
-                            ...settingsForm,
-                            sectionBgOverlayOpacity: Number(e.target.value),
-                          });
-                          setHasUserEditedSettings(true);
-                        }}
-                        className="w-24 accent-[#dfb56c] cursor-pointer"
-                      />
+                    <div className="flex flex-wrap items-center gap-3">
+                      {/* Section Dark Overlay Opacity */}
+                      <div className="flex items-center gap-2 text-xs font-mono">
+                        <span className="text-[#a89f91] text-[11px]">Dark Overlay:</span>
+                        <strong className="text-[#dfb56c]">
+                          {settingsForm.sectionBgOverlayOpacity ?? 65}%
+                        </strong>
+                        <input
+                          type="range"
+                          min={20}
+                          max={90}
+                          step={5}
+                          value={settingsForm.sectionBgOverlayOpacity ?? 65}
+                          onChange={(e) => {
+                            setSettingsForm({
+                              ...settingsForm,
+                              sectionBgOverlayOpacity: Number(e.target.value),
+                            });
+                            setHasUserEditedSettings(true);
+                          }}
+                          className="w-20 accent-[#dfb56c] cursor-pointer"
+                        />
+                      </div>
+
+                      <button
+                        type="button"
+                        disabled={isSavingBg}
+                        onClick={() =>
+                          handleInstantSaveSection(
+                            {
+                              sectionBgImages: settingsForm.sectionBgImages,
+                              sectionBgOverlayOpacity: settingsForm.sectionBgOverlayOpacity,
+                            },
+                            setIsSavingBg,
+                            setBgSaveSuccess,
+                            '✓ Section background images saved to Firestore database & live on website!'
+                          )
+                        }
+                        className="px-3 py-1.5 bg-gradient-to-r from-[#dfb56c] to-[#c99a45] hover:brightness-110 text-black font-mono font-bold text-xs uppercase rounded flex items-center gap-1.5 shadow-md cursor-pointer transition-all disabled:opacity-50"
+                      >
+                        <Save className="w-3.5 h-3.5" />
+                        <span>{isSavingBg ? 'Saving...' : 'Save Section BGs (දැන්ම සුරකින්න)'}</span>
+                      </button>
                     </div>
                   </div>
 
@@ -3236,10 +3784,15 @@ We look forward to learning and creating with you.`;
                                       [curSection.id]: compressed,
                                     };
                                     setSettingsForm({ ...settingsForm, sectionBgImages: updatedBg });
-                                    setHasUserEditedSettings(true);
+                                    await handleInstantSaveSection(
+                                      { sectionBgImages: updatedBg },
+                                      setIsSavingBg,
+                                      setBgSaveSuccess,
+                                      `✓ Background for "${curSection.name}" saved to Firestore database & live on website!`
+                                    );
                                   } catch (_) {
                                     const reader = new FileReader();
-                                    reader.onload = (ev) => {
+                                    reader.onload = async (ev) => {
                                       const res = ev.target?.result as string;
                                       if (res) {
                                         const updatedBg = {
@@ -3247,7 +3800,12 @@ We look forward to learning and creating with you.`;
                                           [curSection.id]: res,
                                         };
                                         setSettingsForm({ ...settingsForm, sectionBgImages: updatedBg });
-                                        setHasUserEditedSettings(true);
+                                        await handleInstantSaveSection(
+                                          { sectionBgImages: updatedBg },
+                                          setIsSavingBg,
+                                          setBgSaveSuccess,
+                                          `✓ Background for "${curSection.name}" saved to Firestore database & live on website!`
+                                        );
                                       }
                                     };
                                     reader.readAsDataURL(file);
@@ -3260,11 +3818,16 @@ We look forward to learning and creating with you.`;
                           {curBgUrl && (
                             <button
                               type="button"
-                              onClick={() => {
+                              onClick={async () => {
                                 const updatedBg = { ...(settingsForm.sectionBgImages || {}) };
                                 delete updatedBg[curSection.id];
                                 setSettingsForm({ ...settingsForm, sectionBgImages: updatedBg });
-                                setHasUserEditedSettings(true);
+                                await handleInstantSaveSection(
+                                  { sectionBgImages: updatedBg },
+                                  setIsSavingBg,
+                                  setBgSaveSuccess,
+                                  `✓ Custom background for "${curSection.name}" removed and saved to database!`
+                                );
                               }}
                               className="btn-3d-secondary px-2.5 py-1.5 text-xs text-red-400 rounded cursor-pointer shrink-0"
                               title="Revert to global background"
@@ -3362,9 +3925,35 @@ We look forward to learning and creating with you.`;
 
               {/* TOP ANNOUNCEMENT BAR CMS */}
               <div className="p-5 rounded-sm bg-[#0c090a] border border-[#c99a45]/30 space-y-3">
-                <span className="text-xs uppercase font-mono text-[#dfb56c] font-bold block">
-                  Top Header Announcement Bar
-                </span>
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-2">
+                  <span className="text-xs uppercase font-mono text-[#dfb56c] font-bold block">
+                    Top Header Announcement Bar
+                  </span>
+                  <button
+                    type="button"
+                    disabled={isSavingAnnouncement}
+                    onClick={() =>
+                      handleInstantSaveSection(
+                        { announcement: settingsForm.announcement },
+                        setIsSavingAnnouncement,
+                        setAnnouncementSaveSuccess,
+                        '✓ Announcement text saved to Firestore database & live on website!'
+                      )
+                    }
+                    className="px-3.5 py-1.5 bg-gradient-to-r from-[#dfb56c] to-[#c99a45] hover:brightness-110 text-black font-mono font-bold text-xs uppercase rounded flex items-center gap-1.5 shadow-md cursor-pointer transition-all disabled:opacity-50"
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    <span>{isSavingAnnouncement ? 'Saving...' : 'Save Announcement (දැන්ම සුරකින්න)'}</span>
+                  </button>
+                </div>
+
+                {announcementSaveSuccess && (
+                  <div className="p-2.5 rounded bg-emerald-950/80 border border-emerald-500/60 text-emerald-300 text-xs font-mono flex items-center gap-2 shadow">
+                    <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>{announcementSaveSuccess}</span>
+                  </div>
+                )}
+
                 <div>
                   <label className="block text-[11px] text-[#a89f91] mb-1 font-mono">
                     Announcement Banner Text (Visible at the very top of the website)
@@ -3381,11 +3970,41 @@ We look forward to learning and creating with you.`;
 
               {/* HERO COVER SECTION CMS */}
               <div className="p-5 rounded-sm bg-[#0c090a] border border-[#c99a45]/30 space-y-4">
-                <div className="flex items-center justify-between border-b border-white/10 pb-2">
-                  <span className="text-xs uppercase font-mono text-[#dfb56c] font-bold">
-                    Hero Section CMS (Front Cover Headline, Media &amp; Buttons)
-                  </span>
-                  <span className="text-[10px] text-[#a89f91] font-mono">Main Front View</span>
+                <div className="flex flex-wrap items-center justify-between border-b border-white/10 pb-2 gap-2">
+                  <div>
+                    <span className="text-xs uppercase font-mono text-[#dfb56c] font-bold block">
+                      Hero Section CMS (Front Cover Headline, Media &amp; Buttons)
+                    </span>
+                    <span className="text-[10px] text-[#a89f91] font-mono">
+                      Edit headline, Sinhala subtitle, intake badge, button links, cover image &amp; video
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={isSavingHero}
+                    onClick={() =>
+                      handleInstantSaveSection(
+                        {
+                          heroBadge: settingsForm.heroBadge,
+                          heroCourseTitle: settingsForm.heroCourseTitle,
+                          heroTitle: settingsForm.heroTitle,
+                          heroSubtitle: settingsForm.heroSubtitle,
+                          heroCtaText: settingsForm.heroCtaText,
+                          heroCtaLink: settingsForm.heroCtaLink,
+                          heroMediaType: settingsForm.heroMediaType,
+                          heroImageUrl: settingsForm.heroImageUrl,
+                          heroVideoUrl: settingsForm.heroVideoUrl,
+                        },
+                        setIsSavingHero,
+                        setHeroSaveSuccess,
+                        '✓ Hero headline, subtitle, buttons & media saved to Firestore database & live on website!'
+                      )
+                    }
+                    className="px-4 py-2 bg-gradient-to-r from-[#dfb56c] to-[#c99a45] hover:brightness-110 text-black font-mono font-bold text-xs uppercase rounded flex items-center gap-1.5 shadow-lg cursor-pointer transition-all disabled:opacity-50"
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    <span>{isSavingHero ? 'Saving...' : 'Save Hero Section (දැන්ම සුරකින්න)'}</span>
+                  </button>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -3469,10 +4088,52 @@ We look forward to learning and creating with you.`;
                 </div>
 
                 {/* Hero Media Selector: IMAGE vs VIDEO */}
-                <div className="pt-2 border-t border-white/10 space-y-3">
-                  <label className="block text-xs uppercase font-mono text-[#dfb56c] font-bold">
-                    Hero Background Media Mode
-                  </label>
+                <div className="pt-2 border-t border-white/10 space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <label className="block text-xs uppercase font-mono text-[#dfb56c] font-bold">
+                        Hero Background Media Mode &amp; YouTube Video
+                      </label>
+                      <span className="text-[10px] text-[#a89f91] font-mono">
+                        Configure authentic YouTube cover video or luxury editorial image for the main landing page hero.
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        disabled={isSavingHero}
+                        onClick={() =>
+                          handleInstantSaveSection(
+                            {
+                              heroMediaType: settingsForm.heroMediaType,
+                              heroVideoUrl: settingsForm.heroVideoUrl,
+                              heroImageUrl: settingsForm.heroImageUrl,
+                              heroTitle: settingsForm.heroTitle,
+                              heroSubtitle: settingsForm.heroSubtitle,
+                              heroCtaText: settingsForm.heroCtaText,
+                              heroCtaLink: settingsForm.heroCtaLink,
+                            },
+                            setIsSavingHero,
+                            setHeroSaveSuccess,
+                            '✓ Hero Video & Media saved to Firestore database & live on website!'
+                          )
+                        }
+                        className="px-4 py-2 bg-gradient-to-r from-[#dfb56c] to-[#c99a45] hover:brightness-110 text-black font-mono font-bold text-xs uppercase rounded flex items-center gap-1.5 shadow-lg cursor-pointer transition-all disabled:opacity-50"
+                      >
+                        <Save className="w-3.5 h-3.5" />
+                        <span>{isSavingHero ? 'Saving...' : 'Save Hero Media (දැන්ම සුරකින්න)'}</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {heroSaveSuccess && (
+                    <div className="p-2.5 rounded bg-emerald-950/80 border border-emerald-500/60 text-emerald-300 text-xs font-mono flex items-center gap-2 shadow">
+                      <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <span>{heroSaveSuccess}</span>
+                    </div>
+                  )}
+
                   <div className="flex gap-4">
                     <label
                       className={`flex-1 p-3 rounded border text-center cursor-pointer transition-all ${
@@ -3519,10 +4180,13 @@ We look forward to learning and creating with you.`;
                       <input
                         type="url"
                         value={settingsForm.heroImageUrl || ''}
-                        onChange={(e) => setSettingsForm({ ...settingsForm, heroImageUrl: e.target.value })}
+                        onChange={(e) => {
+                          setSettingsForm({ ...settingsForm, heroImageUrl: e.target.value });
+                          setHasUserEditedSettings(true);
+                        }}
                         className="w-full px-3 py-2 bg-[#141011] border border-white/10 rounded-sm text-xs text-[#f7f3eb]"
                       />
-                      <label className="btn-3d-secondary px-3 py-1.5 text-[11px] rounded cursor-pointer inline-flex items-center gap-1.5">
+                      <label className="btn-3d-secondary px-3 py-1.5 text-[11px] rounded cursor-pointer inline-flex items-center gap-1.5 bg-[#1e1316] border border-[#dfb56c]/40 text-[#dfb56c] hover:bg-[#dfb56c] hover:text-black transition-all">
                         <Upload className="w-3.5 h-3.5" />
                         <span>Upload Hero Image File</span>
                         <input
@@ -3533,16 +4197,24 @@ We look forward to learning and creating with you.`;
                             const file = e.target.files?.[0];
                             if (file) {
                               try {
-                                const compressed = await compressImage(file, 1600, 1000, 0.82);
-                                setSettingsForm({ ...settingsForm, heroImageUrl: compressed, heroMediaType: 'IMAGE' });
-                                setHasUserEditedSettings(true);
+                                const compressed = await compressImage(file, 1400, 900, 0.82);
+                                await handleInstantSaveSection(
+                                  { heroImageUrl: compressed, heroMediaType: 'IMAGE' },
+                                  setIsSavingHero,
+                                  setHeroSaveSuccess,
+                                  '✓ Hero image uploaded, saved to Firestore database & live on website!'
+                                );
                               } catch (_) {
                                 const reader = new FileReader();
-                                reader.onload = (ev) => {
+                                reader.onload = async (ev) => {
                                   const res = ev.target?.result as string;
                                   if (res) {
-                                    setSettingsForm({ ...settingsForm, heroImageUrl: res, heroMediaType: 'IMAGE' });
-                                    setHasUserEditedSettings(true);
+                                    await handleInstantSaveSection(
+                                      { heroImageUrl: res, heroMediaType: 'IMAGE' },
+                                      setIsSavingHero,
+                                      setHeroSaveSuccess,
+                                      '✓ Hero image uploaded, saved to Firestore database & live on website!'
+                                    );
                                   }
                                 };
                                 reader.readAsDataURL(file);
@@ -3629,14 +4301,73 @@ We look forward to learning and creating with you.`;
                       )}
                     </div>
                   </div>
+
+                  {/* Bottom Save Hero Button */}
+                  <div className="pt-2 flex justify-end">
+                    <button
+                      type="button"
+                      disabled={isSavingHero}
+                      onClick={() =>
+                        handleInstantSaveSection(
+                          {
+                            heroMediaType: settingsForm.heroMediaType,
+                            heroVideoUrl: settingsForm.heroVideoUrl,
+                            heroImageUrl: settingsForm.heroImageUrl,
+                            heroTitle: settingsForm.heroTitle,
+                            heroSubtitle: settingsForm.heroSubtitle,
+                            heroCtaText: settingsForm.heroCtaText,
+                            heroCtaLink: settingsForm.heroCtaLink,
+                          },
+                          setIsSavingHero,
+                          setHeroSaveSuccess,
+                          '✓ Hero Video & Media saved to Firestore database & live on website!'
+                        )
+                      }
+                      className="px-5 py-2.5 bg-gradient-to-r from-[#dfb56c] to-[#c99a45] hover:brightness-110 text-black font-mono font-bold text-xs uppercase rounded flex items-center gap-1.5 shadow-lg cursor-pointer transition-all disabled:opacity-50"
+                    >
+                      <Save className="w-4 h-4" />
+                      <span>{isSavingHero ? 'Saving...' : 'Save Hero Video & Media (දැන්ම සුරකින්න)'}</span>
+                    </button>
+                  </div>
                 </div>
               </div>
 
               {/* COURSE INTRO SECTION CMS */}
               <div className="p-5 rounded-sm bg-[#0c090a] border border-[#c99a45]/30 space-y-4">
-                <span className="text-xs uppercase font-mono text-[#dfb56c] font-bold block">
-                  Course Introduction &amp; Highlights Section
-                </span>
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-2">
+                  <span className="text-xs uppercase font-mono text-[#dfb56c] font-bold block">
+                    Course Introduction &amp; Highlights Section
+                  </span>
+                  <button
+                    type="button"
+                    disabled={isSavingIntro}
+                    onClick={() =>
+                      handleInstantSaveSection(
+                        {
+                          introBadge: settingsForm.introBadge,
+                          introTitle: settingsForm.introTitle,
+                          introHighlightTitle: settingsForm.introHighlightTitle,
+                          introHighlightDesc: settingsForm.introHighlightDesc,
+                        },
+                        setIsSavingIntro,
+                        setIntroSaveSuccess,
+                        '✓ Course Intro texts saved to Firestore database & live on website!'
+                      )
+                    }
+                    className="px-3.5 py-1.5 bg-gradient-to-r from-[#dfb56c] to-[#c99a45] hover:brightness-110 text-black font-mono font-bold text-xs uppercase rounded flex items-center gap-1.5 shadow-md cursor-pointer transition-all disabled:opacity-50"
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    <span>{isSavingIntro ? 'Saving...' : 'Save Course Intro (දැන්ම සුරකින්න)'}</span>
+                  </button>
+                </div>
+
+                {introSaveSuccess && (
+                  <div className="p-2.5 rounded bg-emerald-950/80 border border-emerald-500/60 text-emerald-300 text-xs font-mono flex items-center gap-2 shadow">
+                    <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>{introSaveSuccess}</span>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-[11px] text-[#a89f91] mb-1 font-mono">
@@ -3693,9 +4424,41 @@ We look forward to learning and creating with you.`;
 
               {/* Bank Details for Transfer */}
               <div className="p-5 rounded-sm bg-[#0c090a] border border-[#c99a45]/30 space-y-4">
-                <span className="text-xs uppercase font-mono text-[#dfb56c] font-bold block">
-                  Official Bank Account for Student Transfers
-                </span>
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-2">
+                  <span className="text-xs uppercase font-mono text-[#dfb56c] font-bold block">
+                    Official Bank Account for Student Transfers
+                  </span>
+                  <button
+                    type="button"
+                    disabled={isSavingBank}
+                    onClick={() =>
+                      handleInstantSaveSection(
+                        {
+                          bankName: settingsForm.bankName,
+                          bankAccountName: settingsForm.bankAccountName,
+                          bankAccountNumber: settingsForm.bankAccountNumber,
+                          bankBranch: settingsForm.bankBranch,
+                          paymentInstructions: settingsForm.paymentInstructions,
+                        },
+                        setIsSavingBank,
+                        setBankSaveSuccess,
+                        '✓ Bank account details saved to Firestore database & live on website!'
+                      )
+                    }
+                    className="px-3.5 py-1.5 bg-gradient-to-r from-[#dfb56c] to-[#c99a45] hover:brightness-110 text-black font-mono font-bold text-xs uppercase rounded flex items-center gap-1.5 shadow-md cursor-pointer transition-all disabled:opacity-50"
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    <span>{isSavingBank ? 'Saving...' : 'Save Bank Details (දැන්ම සුරකින්න)'}</span>
+                  </button>
+                </div>
+
+                {bankSaveSuccess && (
+                  <div className="p-2.5 rounded bg-emerald-950/80 border border-emerald-500/60 text-emerald-300 text-xs font-mono flex items-center gap-2 shadow">
+                    <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>{bankSaveSuccess}</span>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-[11px] text-[#a89f91] mb-1">Bank Name</label>
@@ -3748,9 +4511,41 @@ We look forward to learning and creating with you.`;
 
               {/* Fees configuration */}
               <div className="p-5 rounded-sm bg-[#0c090a] border border-[#c99a45]/30 space-y-4">
-                <span className="text-xs uppercase font-mono text-[#dfb56c] font-bold block">
-                  Tuition Fees, Duration &amp; Installments
-                </span>
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-2">
+                  <span className="text-xs uppercase font-mono text-[#dfb56c] font-bold block">
+                    Tuition Fees, Duration &amp; Installments
+                  </span>
+                  <button
+                    type="button"
+                    disabled={isSavingFees}
+                    onClick={() =>
+                      handleInstantSaveSection(
+                        {
+                          physicalFee: settingsForm.physicalFee,
+                          zoomFee: settingsForm.zoomFee,
+                          registrationFee: settingsForm.registrationFee,
+                          courseDuration: settingsForm.courseDuration,
+                          discountNote: settingsForm.discountNote,
+                        },
+                        setIsSavingFees,
+                        setFeesSaveSuccess,
+                        '✓ Tuition fees & duration saved to Firestore database & live on website!'
+                      )
+                    }
+                    className="px-3.5 py-1.5 bg-gradient-to-r from-[#dfb56c] to-[#c99a45] hover:brightness-110 text-black font-mono font-bold text-xs uppercase rounded flex items-center gap-1.5 shadow-md cursor-pointer transition-all disabled:opacity-50"
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    <span>{isSavingFees ? 'Saving...' : 'Save Tuition Fees (දැන්ම සුරකින්න)'}</span>
+                  </button>
+                </div>
+
+                {feesSaveSuccess && (
+                  <div className="p-2.5 rounded bg-emerald-950/80 border border-emerald-500/60 text-emerald-300 text-xs font-mono flex items-center gap-2 shadow">
+                    <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>{feesSaveSuccess}</span>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
                     <label className="block text-xs uppercase font-mono text-[#dfb56c] mb-1">
@@ -3815,9 +4610,38 @@ We look forward to learning and creating with you.`;
 
               {/* CONTACT & SOCIAL LINKS CMS */}
               <div className="p-5 rounded-sm bg-[#0c090a] border border-[#c99a45]/30 space-y-4">
-                <span className="text-xs uppercase font-mono text-[#dfb56c] font-bold block">
-                  Official WhatsApp &amp; Social Media Links
-                </span>
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-2">
+                  <span className="text-xs uppercase font-mono text-[#dfb56c] font-bold block">
+                    Official WhatsApp &amp; Social Media Links
+                  </span>
+                  <button
+                    type="button"
+                    disabled={isSavingSocial}
+                    onClick={() =>
+                      handleInstantSaveSection(
+                        {
+                          whatsappContactNumber: settingsForm.whatsappContactNumber,
+                          whatsappDefaultMessage: settingsForm.whatsappDefaultMessage,
+                          socialLinks: settingsForm.socialLinks,
+                        },
+                        setIsSavingSocial,
+                        setSocialSaveSuccess,
+                        '✓ WhatsApp & Social media links saved to Firestore database & live on website!'
+                      )
+                    }
+                    className="px-3.5 py-1.5 bg-gradient-to-r from-[#dfb56c] to-[#c99a45] hover:brightness-110 text-black font-mono font-bold text-xs uppercase rounded flex items-center gap-1.5 shadow-md cursor-pointer transition-all disabled:opacity-50"
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    <span>{isSavingSocial ? 'Saving...' : 'Save Social Links (දැන්ම සුරකින්න)'}</span>
+                  </button>
+                </div>
+
+                {socialSaveSuccess && (
+                  <div className="p-2.5 rounded bg-emerald-950/80 border border-emerald-500/60 text-emerald-300 text-xs font-mono flex items-center gap-2 shadow">
+                    <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>{socialSaveSuccess}</span>
+                  </div>
+                )}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-[11px] text-[#a89f91] mb-1 font-mono">
@@ -3928,15 +4752,26 @@ We look forward to learning and creating with you.`;
                   </p>
                 </div>
                 <button
-                  onClick={() => {
+                  onClick={async () => {
                     const title = prompt('Enter new module title:');
-                    if (title) saveCourseModule({ title });
+                    if (title) {
+                      await saveCourseModule({ title });
+                      setModuleSaveSuccess(`✓ Module "${title}" added and saved to Firestore database!`);
+                      setTimeout(() => setModuleSaveSuccess(''), 4500);
+                    }
                   }}
-                  className="px-4 py-2 bg-[#540d18] border border-[#dfb56c] text-[#f7e2a9] text-xs font-bold rounded-sm flex items-center gap-1.5"
+                  className="px-4 py-2 bg-[#540d18] border border-[#dfb56c] text-[#f7e2a9] text-xs font-bold rounded-sm flex items-center gap-1.5 cursor-pointer"
                 >
                   <Plus className="w-4 h-4" /> Add Module
                 </button>
               </div>
+
+              {moduleSaveSuccess && (
+                <div className="p-3 rounded bg-emerald-950/80 border border-emerald-500/60 text-emerald-300 text-xs font-mono flex items-center gap-2 shadow">
+                  <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>{moduleSaveSuccess}</span>
+                </div>
+              )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                 {modules.map((m) => (
@@ -3946,19 +4781,28 @@ We look forward to learning and creating with you.`;
                         <span className="font-mono font-bold text-xs text-[#dfb56c]">{m.number}</span>
                         <div className="flex items-center gap-2 text-xs">
                           <button
-                            onClick={() => {
+                            onClick={async () => {
+                              const newTitle = prompt('Edit module title:', m.title);
+                              if (newTitle === null) return;
                               const newDesc = prompt('Edit description:', m.description);
-                              if (newDesc !== null) saveCourseModule({ ...m, description: newDesc });
+                              if (newDesc === null) return;
+                              await saveCourseModule({ ...m, title: newTitle, description: newDesc });
+                              setModuleSaveSuccess(`✓ Module "${newTitle}" updated and saved to Firestore database!`);
+                              setTimeout(() => setModuleSaveSuccess(''), 4500);
                             }}
-                            className="text-blue-400 hover:underline"
+                            className="text-blue-400 hover:underline cursor-pointer"
                           >
                             Edit
                           </button>
                           <button
-                            onClick={() => {
-                              if (confirm(`Delete module ${m.title}?`)) deleteCourseModule(m.id);
+                            onClick={async () => {
+                              if (confirm(`Delete module ${m.title}?`)) {
+                                await deleteCourseModule(m.id);
+                                setModuleSaveSuccess(`✓ Module "${m.title}" deleted from database.`);
+                                setTimeout(() => setModuleSaveSuccess(''), 4500);
+                              }
                             }}
-                            className="text-red-400 hover:underline"
+                            className="text-red-400 hover:underline cursor-pointer"
                           >
                             Delete
                           </button>
@@ -3986,15 +4830,26 @@ We look forward to learning and creating with you.`;
                   </p>
                 </div>
                 <button
-                  onClick={() => {
+                  onClick={async () => {
                     const title = prompt('Enter new Pillar English Title:');
-                    if (title) saveWhyFeature({ title });
+                    if (title) {
+                      await saveWhyFeature({ title });
+                      setWhyPillarSaveSuccess(`✓ New pillar "${title}" added and saved to database!`);
+                      setTimeout(() => setWhyPillarSaveSuccess(''), 4500);
+                    }
                   }}
                   className="px-4 py-2 bg-[#540d18] border border-[#dfb56c] text-[#f7e2a9] text-xs font-bold rounded-sm flex items-center gap-1.5 hover:bg-[#6e1322] transition-colors"
                 >
                   <Plus className="w-4 h-4" /> Add Pillar
                 </button>
               </div>
+
+              {whyPillarSaveSuccess && (
+                <div className="p-3 rounded bg-emerald-950/80 border border-emerald-500/60 text-emerald-300 text-xs font-mono flex items-center gap-2 shadow">
+                  <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>{whyPillarSaveSuccess}</span>
+                </div>
+              )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {whyFeatures.map((f) => (
@@ -4166,6 +5021,215 @@ We look forward to learning and creating with you.`;
                   >
                     <Plus className="w-4 h-4" /> Add Masterclass Video
                   </button>
+                </div>
+              </div>
+
+              {/* SPECIAL FEATURED ATELIER MASTERCLASS VIDEO MANAGER CARD */}
+              <div className="p-5 sm:p-6 rounded-lg bg-gradient-to-r from-[#1c1214] via-[#241317] to-[#160e10] border-2 border-[#dfb56c] space-y-5 shadow-2xl relative overflow-hidden">
+                <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#dfb56c] to-transparent" />
+                
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#dfb56c]/30 pb-4">
+                  <div className="flex items-start gap-3">
+                    <span className="w-9 h-9 rounded-full bg-[#540d18] border border-[#dfb56c] text-[#f7e2a9] flex items-center justify-center font-bold text-sm shadow-md shrink-0 mt-0.5">
+                      <Sparkles className="w-4 h-4 text-[#dfb56c]" />
+                    </span>
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h4 className="text-base font-bold text-[#f7e2a9] font-editorial">
+                          විශේෂාංගගත සජීවී වැඩමුළුව (FEATURED ATELIER MASTERCLASS) - Live Spotlight Video
+                        </h4>
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-500/30 font-bold">
+                          ● Firestore Live Synced
+                        </span>
+                      </div>
+                      <p className="text-xs text-[#d5cfc4] font-sinhala mt-1">
+                        Landing Page එකේ "විශේෂාංගගත සජීවී වැඩමුළුව" අංශයේ විශාල Screen එකේ පෙන්වන YouTube වීඩියෝව සහ විස්තර මෙතැනින් කෙලින්ම වෙනස් කර Save කරන්න.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    {featuredVideoSaveSuccess && (
+                      <span className="text-emerald-400 font-mono text-xs flex items-center gap-1 font-bold animate-in fade-in">
+                        <CheckCircle className="w-3.5 h-3.5" />
+                        <span>{featuredVideoSaveSuccess}</span>
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      disabled={isSavingFeaturedVideo}
+                      onClick={handleSaveFeaturedMasterclass}
+                      className="px-4 py-2.5 bg-gradient-to-r from-[#dfb56c] via-[#f7e2a9] to-[#c99a45] text-black font-bold text-xs rounded hover:brightness-110 flex items-center gap-1.5 cursor-pointer shadow-xl transition-all disabled:opacity-50"
+                    >
+                      {isSavingFeaturedVideo ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span>සුරකිමින් පවතී...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Save className="w-4 h-4 text-black" />
+                          <span>Save Featured Masterclass (දැන්ම සුරකින්න)</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Quick Video Switcher Dropdown */}
+                <div className="p-3 rounded bg-black/40 border border-[#dfb56c]/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                  <div className="flex items-center gap-2 text-[#f7e2a9] font-bold">
+                    <Star className="w-4 h-4 text-[#dfb56c] fill-[#dfb56c]" />
+                    <span>පවතින වීඩියෝවක් මෙතැනට තෝරන්න (Select an existing video to Feature):</span>
+                  </div>
+                  <select
+                    value={featuredVideoForm.id || currentFeaturedVideo?.id || ''}
+                    onChange={(e) => handleSelectFeaturedVideo(e.target.value)}
+                    className="p-2 bg-[#0c090a] border border-[#dfb56c]/40 rounded text-[#f7e2a9] text-xs font-sinhala max-w-md focus:outline-none focus:border-[#dfb56c]"
+                  >
+                    {videos.map((v) => (
+                      <option key={v.id} value={v.id}>
+                        {v.isFeatured ? '⭐ [දැනට Featured] ' : ''}{v.titleSinhala || v.title} ({v.category})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Form & Live Preview Grid */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+                  {/* Left Column: Video Preview */}
+                  <div className="lg:col-span-4 rounded bg-black/60 border border-[#dfb56c]/30 p-3 space-y-3">
+                    <div className="relative aspect-video rounded overflow-hidden bg-black border border-white/10">
+                      <img
+                        src={
+                          featuredVideoForm.thumbnailUrl ||
+                          getYouTubeThumbnailUrl(featuredVideoForm.youtubeUrl) ||
+                          'https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&w=1200&q=85'
+                        }
+                        alt="Featured Preview"
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                        <Play className="w-10 h-10 text-[#f7e2a9] fill-[#f7e2a9]" />
+                      </div>
+                      <span className="absolute bottom-2 right-2 px-2 py-0.5 rounded bg-black/80 text-[10px] font-mono text-white">
+                        {featuredVideoForm.duration || '12:30'}
+                      </span>
+                    </div>
+
+                    <div className="space-y-1 text-xs">
+                      <div className="flex items-center justify-between text-[11px] font-mono text-[#dfb56c]">
+                        <span>{featuredVideoForm.categorySinhala || featuredVideoForm.category}</span>
+                        <span className="text-emerald-400">4K Ultra HD</span>
+                      </div>
+                      <p className="font-bold text-[#f7f3eb] font-sinhala line-clamp-2">
+                        {featuredVideoForm.titleSinhala || featuredVideoForm.title || 'මාතෘකාවක් නැත'}
+                      </p>
+                      <p className="text-[11px] text-[#a89f91] line-clamp-2 font-sinhala">
+                        {featuredVideoForm.descriptionSinhala || featuredVideoForm.description || 'විස්තරයක් නැත'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Right Column: Direct Inputs */}
+                  <div className="lg:col-span-8 grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                    <div className="md:col-span-2">
+                      <label className="block text-[#dfb56c] font-bold mb-1 flex items-center justify-between">
+                        <span>YouTube Video URL හෝ Video Link එක (YouTube Link) *</span>
+                        <span className="text-[10px] text-[#a89f91] font-mono">e.g. https://www.youtube.com/watch?v=...</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={featuredVideoForm.youtubeUrl}
+                        onChange={(e) => {
+                          setIsFeaturedFormDirty(true);
+                          setFeaturedVideoForm({ ...featuredVideoForm, youtubeUrl: e.target.value });
+                        }}
+                        placeholder="https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+                        className="w-full p-2.5 bg-[#0c090a] border border-[#dfb56c]/50 rounded text-[#f7e2a9] font-mono text-xs focus:outline-none focus:border-[#dfb56c]"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[#f7e2a9] font-bold mb-1 font-sinhala">
+                        සිංහල ප්‍රධාන මාතෘකාව (Sinhala Title)
+                      </label>
+                      <input
+                        type="text"
+                        value={featuredVideoForm.titleSinhala}
+                        onChange={(e) => {
+                          setIsFeaturedFormDirty(true);
+                          setFeaturedVideoForm({ ...featuredVideoForm, titleSinhala: e.target.value });
+                        }}
+                        placeholder="Ceylon Style Studio: මාස 6ක වෘත්තීය විලාසිතා හා සන්නාමකරණ..."
+                        className="w-full p-2.5 bg-[#0c090a] border border-white/15 rounded text-[#f7f3eb] font-sinhala focus:outline-none focus:border-[#dfb56c]"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[#a89f91] mb-1 font-mono">
+                        English Title
+                      </label>
+                      <input
+                        type="text"
+                        value={featuredVideoForm.title}
+                        onChange={(e) => {
+                          setIsFeaturedFormDirty(true);
+                          setFeaturedVideoForm({ ...featuredVideoForm, title: e.target.value });
+                        }}
+                        placeholder="Ceylon Style Studio: 6-Month Fashion Program Overview"
+                        className="w-full p-2.5 bg-[#0c090a] border border-white/15 rounded text-[#f7f3eb] focus:outline-none focus:border-[#dfb56c]"
+                      />
+                    </div>
+
+                    <div className="md:col-span-2">
+                      <label className="block text-[#f7e2a9] font-bold mb-1 font-sinhala">
+                        සිංහල විස්තරය (Sinhala Description / Curriculum Highlights)
+                      </label>
+                      <textarea
+                        rows={2}
+                        value={featuredVideoForm.descriptionSinhala}
+                        onChange={(e) => {
+                          setIsFeaturedFormDirty(true);
+                          setFeaturedVideoForm({ ...featuredVideoForm, descriptionSinhala: e.target.value });
+                        }}
+                        placeholder="පැටර්න් නිර්මාණයේ සිට, AI තාක්ෂණය, සන්නාමකරණය සහ ජාත්‍යන්තර වෙළඳපොළ දක්වා ඔබව රැගෙන යන සුවිශේෂී පාඨමාලාවේ සම්පූර්ණ විස්තරය."
+                        className="w-full p-2.5 bg-[#0c090a] border border-white/15 rounded text-[#f7e2a9] font-sinhala focus:outline-none focus:border-[#dfb56c]"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[#a89f91] mb-1">
+                        වීඩියෝ කාලසීමාව (Duration)
+                      </label>
+                      <input
+                        type="text"
+                        value={featuredVideoForm.duration}
+                        onChange={(e) => {
+                          setIsFeaturedFormDirty(true);
+                          setFeaturedVideoForm({ ...featuredVideoForm, duration: e.target.value });
+                        }}
+                        placeholder="12:30 Mins"
+                        className="w-full p-2.5 bg-[#0c090a] border border-white/15 rounded text-[#f7f3eb] font-mono focus:outline-none focus:border-[#dfb56c]"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[#dfb56c] font-bold mb-1 font-sinhala">
+                        Header Badge Text (කොටසේ ඉහළ ලේබලය)
+                      </label>
+                      <input
+                        type="text"
+                        value={featuredVideoForm.badgeTextSinhala}
+                        onChange={(e) => {
+                          setIsFeaturedFormDirty(true);
+                          setFeaturedVideoForm({ ...featuredVideoForm, badgeTextSinhala: e.target.value });
+                        }}
+                        placeholder="විශේෂාංගගත සජීවී වැඩමුළුව (FEATURED ATELIER MASTERCLASS)"
+                        className="w-full p-2.5 bg-[#0c090a] border border-[#dfb56c]/30 rounded text-[#f7e2a9] font-sinhala focus:outline-none focus:border-[#dfb56c]"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -4494,8 +5558,9 @@ We look forward to learning and creating with you.`;
                           <Play className="w-8 h-8 text-[#f7e2a9] fill-[#f7e2a9]" />
                         </div>
                         {v.isFeatured && (
-                          <span className="absolute top-2 left-2 px-2 py-0.5 rounded bg-[#540d18] text-[#f7e2a9] text-[9px] font-mono border border-[#dfb56c]/40 font-bold">
-                            ⭐ FEATURED
+                          <span className="absolute top-2 left-2 px-2.5 py-1 rounded bg-[#540d18] text-[#f7e2a9] text-[10px] font-mono border border-[#dfb56c] font-bold shadow-lg flex items-center gap-1">
+                            <Sparkles className="w-3 h-3 text-[#dfb56c]" />
+                            <span>⭐ FEATURED MASTERCLASS (සජීවීව පෙන්වයි)</span>
                           </span>
                         )}
                         <span className="absolute bottom-2 right-2 px-1.5 py-0.5 rounded bg-black/80 text-[10px] font-mono text-white">
@@ -4524,13 +5589,27 @@ We look forward to learning and creating with you.`;
                       <p className="text-[10px] text-[#a89f91] line-clamp-2">{v.description}</p>
                     </div>
 
-                    <div className="mt-4 pt-2.5 border-t border-white/5 flex items-center justify-between text-xs">
-                      <button
-                        onClick={() => setEditingVideo(v)}
-                        className="text-[#dfb56c] hover:underline flex items-center gap-1 font-bold"
-                      >
-                        <Edit className="w-3.5 h-3.5" /> Edit Video &amp; Image
-                      </button>
+                    <div className="mt-4 pt-2.5 border-t border-white/5 flex flex-wrap items-center justify-between gap-2 text-xs">
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setEditingVideo(v)}
+                          className="text-[#dfb56c] hover:underline flex items-center gap-1 font-bold"
+                        >
+                          <Edit className="w-3.5 h-3.5" /> Edit Video &amp; Image
+                        </button>
+
+                        {!v.isFeatured && (
+                          <button
+                            type="button"
+                            onClick={() => handleSelectFeaturedVideo(v.id)}
+                            className="text-[11px] text-[#dfb56c] hover:text-black hover:bg-[#dfb56c] transition-colors flex items-center gap-1 font-mono border border-[#dfb56c]/40 px-2 py-0.5 rounded bg-black/40"
+                            title="Set as the Featured Atelier Masterclass on Landing Page"
+                          >
+                            <Star className="w-3 h-3 text-[#dfb56c]" />
+                            <span>Make Featured</span>
+                          </button>
+                        )}
+                      </div>
 
                       <button
                         onClick={() => {
@@ -4558,7 +5637,7 @@ We look forward to learning and creating with you.`;
                     Style Collections &amp; Haute Couture Lookbooks ({gallery.length})
                   </h3>
                   <p className="text-xs text-[#a89f91] mt-1 font-sinhala">
-                    වෙබ් අඩවියේ 3D Style Collection Slider එකෙහි පෙන්වන සියලුම ඇඳුම් මෝස්තර, පින්තූර සහ විස්තර මෙතැනින් කළමනාකරණය කරන්න.
+                    වෙබ් අඩවියේ 3D Style Collection Slider එකෙහි පෙන්වන සියලුම ඇඳුම් මෝස්තර, පින්තූර සහ විස්තර මෙතැනින් කළමනාකරණය කරන්න. (Saved instantly to Firestore database).
                   </p>
                 </div>
                 <button
@@ -4578,6 +5657,13 @@ We look forward to learning and creating with you.`;
                   <Plus className="w-4 h-4" /> Add New Style Look
                 </button>
               </div>
+
+              {gallerySaveSuccess && (
+                <div className="p-3 rounded bg-emerald-950/80 border border-emerald-500/60 text-emerald-300 text-xs font-mono flex items-center gap-2 shadow">
+                  <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>{gallerySaveSuccess}</span>
+                </div>
+              )}
 
               {/* Inline Editor / Creation Form Modal */}
               {editingGalleryItem && (
@@ -4665,17 +5751,45 @@ We look forward to learning and creating with you.`;
 
                   <div>
                     <label className="block text-xs font-mono text-[#a89f91] mb-1">
-                      Image URL *
+                      Image URL or Upload File *
                     </label>
-                    <input
-                      type="url"
-                      value={editingGalleryItem.imageUrl || ''}
-                      onChange={(e) =>
-                        setEditingGalleryItem({ ...editingGalleryItem, imageUrl: e.target.value })
-                      }
-                      placeholder="https://images.unsplash.com/..."
-                      className="w-full px-3 py-2 bg-black/60 border border-white/15 rounded text-xs text-white focus:border-[#dfb56c] outline-none font-mono"
-                    />
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                      <input
+                        type="url"
+                        value={editingGalleryItem.imageUrl || ''}
+                        onChange={(e) =>
+                          setEditingGalleryItem({ ...editingGalleryItem, imageUrl: e.target.value })
+                        }
+                        placeholder="https://images.unsplash.com/... or upload photo"
+                        className="flex-1 px-3 py-2 bg-black/60 border border-white/15 rounded text-xs text-white focus:border-[#dfb56c] outline-none font-mono"
+                      />
+                      <label className="btn-3d-secondary px-3 py-2 text-xs rounded cursor-pointer inline-flex items-center justify-center gap-1.5 shrink-0 bg-[#1e1316] border border-[#dfb56c]/40 text-[#dfb56c] hover:bg-[#dfb56c] hover:text-black transition-all">
+                        <Upload className="w-3.5 h-3.5" />
+                        <span>Upload Look File</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="sr-only"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              try {
+                                const compressed = await compressImage(file, 1200, 1600, 0.85);
+                                setEditingGalleryItem({ ...editingGalleryItem, imageUrl: compressed });
+                              } catch (_) {
+                                const reader = new FileReader();
+                                reader.onload = (ev) => {
+                                  const res = ev.target?.result as string;
+                                  if (res) setEditingGalleryItem({ ...editingGalleryItem, imageUrl: res });
+                                };
+                                reader.readAsDataURL(file);
+                              }
+                            }
+                          }}
+                        />
+                      </label>
+                    </div>
+
                     {Boolean(editingGalleryItem?.imageUrl && editingGalleryItem.imageUrl.trim()) && (
                       <div className="mt-2 w-24 h-28 rounded border border-white/20 overflow-hidden shadow-md">
                         <img
@@ -4726,7 +5840,7 @@ We look forward to learning and creating with you.`;
                     <button
                       type="button"
                       onClick={() => setEditingGalleryItem(null)}
-                      className="px-4 py-2 rounded bg-black/50 text-[#a89f91] hover:text-white text-xs"
+                      className="px-4 py-2 rounded bg-black/50 text-[#a89f91] hover:text-white text-xs cursor-pointer"
                     >
                       Cancel
                     </button>
@@ -4750,10 +5864,12 @@ We look forward to learning and creating with you.`;
                           isPublished: true,
                         });
                         setEditingGalleryItem(null);
+                        setGallerySaveSuccess(`✓ Style Look "${editingGalleryItem.title}" (${editingGalleryItem.titleSinhala || ''}) saved to Firestore database & live on website!`);
+                        setTimeout(() => setGallerySaveSuccess(''), 5000);
                       }}
-                      className="btn-3d-gold px-6 py-2 text-xs uppercase tracking-wider font-bold"
+                      className="btn-3d-gold px-6 py-2 text-xs uppercase tracking-wider font-bold cursor-pointer"
                     >
-                      Save to Collection
+                      Save to Collection (දැන්ම සුරකින්න)
                     </button>
                   </div>
                 </div>
@@ -4819,19 +5935,36 @@ We look forward to learning and creating with you.`;
           {activeTab === 'locations' && (
             <div className="space-y-6 animate-in fade-in duration-300">
               <div className="flex items-center justify-between">
-                <h3 className="text-xl font-editorial font-bold text-[#f7f3eb]">
-                  Studios &amp; Locations ({locations.length})
-                </h3>
+                <div>
+                  <h3 className="text-xl font-editorial font-bold text-[#f7f3eb]">
+                    Studios &amp; Locations ({locations.length})
+                  </h3>
+                  <p className="text-xs text-[#a89f91]">
+                    Manage official studio branches, addresses, phone contacts, and Google Maps locations shown on the website.
+                  </p>
+                </div>
                 <button
-                  onClick={() => {
+                  onClick={async () => {
                     const name = prompt('Enter location name (e.g. KEGALLE):');
-                    if (name) saveLocation({ name });
+                    if (!name) return;
+                    const address = prompt('Enter street address / landmark:', 'Main Street, Kegalle');
+                    const phone = prompt('Enter contact phone number:', '+94771234567');
+                    await saveLocation({ name, address: address || '', phone: phone || '' });
+                    setLocationSaveSuccess(`✓ Studio location "${name}" added and saved to Firestore database!`);
+                    setTimeout(() => setLocationSaveSuccess(''), 4500);
                   }}
-                  className="px-4 py-2 bg-[#540d18] border border-[#dfb56c] text-[#f7e2a9] text-xs font-bold rounded-sm flex items-center gap-1.5"
+                  className="px-4 py-2 bg-[#540d18] border border-[#dfb56c] text-[#f7e2a9] text-xs font-bold rounded-sm flex items-center gap-1.5 cursor-pointer"
                 >
                   <Plus className="w-4 h-4" /> Add Location
                 </button>
               </div>
+
+              {locationSaveSuccess && (
+                <div className="p-3 rounded bg-emerald-950/80 border border-emerald-500/60 text-emerald-300 text-xs font-mono flex items-center gap-2 shadow">
+                  <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>{locationSaveSuccess}</span>
+                </div>
+              )}
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {locations.map((loc) => (
@@ -4839,22 +5972,35 @@ We look forward to learning and creating with you.`;
                     <div>
                       <h4 className="text-base font-editorial font-bold text-[#f7f3eb]">{loc.name}</h4>
                       <p className="text-xs text-[#b8afa2] mt-1">{loc.address}</p>
+                      {loc.phone && (
+                        <p className="text-[11px] text-[#dfb56c] font-mono mt-1">📞 {loc.phone}</p>
+                      )}
                     </div>
                     <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between text-xs">
                       <button
-                        onClick={() => {
+                        onClick={async () => {
+                          const newName = prompt('Edit location name:', loc.name);
+                          if (newName === null) return;
                           const newAddress = prompt('Edit address:', loc.address);
-                          if (newAddress !== null) saveLocation({ ...loc, address: newAddress });
+                          if (newAddress === null) return;
+                          const newPhone = prompt('Edit contact phone:', loc.phone || '');
+                          await saveLocation({ ...loc, name: newName, address: newAddress, phone: newPhone || '' });
+                          setLocationSaveSuccess(`✓ Location "${newName}" updated and saved to Firestore database!`);
+                          setTimeout(() => setLocationSaveSuccess(''), 4500);
                         }}
-                        className="text-blue-400 hover:underline"
+                        className="text-blue-400 hover:underline cursor-pointer"
                       >
                         Edit
                       </button>
                       <button
-                        onClick={() => {
-                          if (confirm(`Delete location ${loc.name}?`)) deleteLocation(loc.id);
+                        onClick={async () => {
+                          if (confirm(`Delete location ${loc.name}?`)) {
+                            await deleteLocation(loc.id);
+                            setLocationSaveSuccess(`✓ Location "${loc.name}" deleted from database.`);
+                            setTimeout(() => setLocationSaveSuccess(''), 4500);
+                          }
                         }}
-                        className="text-red-400 hover:underline"
+                        className="text-red-400 hover:underline cursor-pointer"
                       >
                         Delete
                       </button>
@@ -4869,20 +6015,37 @@ We look forward to learning and creating with you.`;
           {activeTab === 'faqs' && (
             <div className="space-y-6 animate-in fade-in duration-300">
               <div className="flex items-center justify-between">
-                <h3 className="text-xl font-editorial font-bold text-[#f7f3eb]">
-                  FAQs ({faqs.length})
-                </h3>
+                <div>
+                  <h3 className="text-xl font-editorial font-bold text-[#f7f3eb]">
+                    FAQs ({faqs.length})
+                  </h3>
+                  <p className="text-xs text-[#a89f91]">
+                    Manage frequently asked questions &amp; answers displayed on the landing page.
+                  </p>
+                </div>
                 <button
-                  onClick={() => {
+                  onClick={async () => {
                     const question = prompt('Enter Question:');
+                    if (!question) return;
                     const answer = prompt('Enter Answer:');
-                    if (question && answer) saveFAQ({ question, answer });
+                    if (answer) {
+                      await saveFAQ({ question, answer });
+                      setFaqSaveSuccess(`✓ FAQ added and saved to Firestore database!`);
+                      setTimeout(() => setFaqSaveSuccess(''), 4500);
+                    }
                   }}
-                  className="px-4 py-2 bg-[#540d18] border border-[#dfb56c] text-[#f7e2a9] text-xs font-bold rounded-sm flex items-center gap-1.5"
+                  className="px-4 py-2 bg-[#540d18] border border-[#dfb56c] text-[#f7e2a9] text-xs font-bold rounded-sm flex items-center gap-1.5 cursor-pointer"
                 >
                   <Plus className="w-4 h-4" /> Add FAQ
                 </button>
               </div>
+
+              {faqSaveSuccess && (
+                <div className="p-3 rounded bg-emerald-950/80 border border-emerald-500/60 text-emerald-300 text-xs font-mono flex items-center gap-2 shadow">
+                  <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>{faqSaveSuccess}</span>
+                </div>
+              )}
 
               <div className="space-y-3">
                 {faqs.map((f) => (
@@ -4891,14 +6054,34 @@ We look forward to learning and creating with you.`;
                       <h4 className="text-sm font-bold text-[#f7f3eb]">{f.question}</h4>
                       <p className="text-xs text-[#b8afa2] mt-1 font-sinhala">{f.answer}</p>
                     </div>
-                    <button
-                      onClick={() => {
-                        if (confirm('Delete this FAQ?')) deleteFAQ(f.id);
-                      }}
-                      className="text-xs text-red-400 hover:underline shrink-0"
-                    >
-                      Delete
-                    </button>
+                    <div className="flex items-center gap-3 shrink-0 text-xs">
+                      <button
+                        onClick={async () => {
+                          const newQ = prompt('Edit Question:', f.question);
+                          if (newQ === null) return;
+                          const newA = prompt('Edit Answer:', f.answer);
+                          if (newA === null) return;
+                          await saveFAQ({ ...f, question: newQ, answer: newA });
+                          setFaqSaveSuccess(`✓ FAQ updated and saved to Firestore database!`);
+                          setTimeout(() => setFaqSaveSuccess(''), 4500);
+                        }}
+                        className="text-blue-400 hover:underline cursor-pointer"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={async () => {
+                          if (confirm('Delete this FAQ?')) {
+                            await deleteFAQ(f.id);
+                            setFaqSaveSuccess(`✓ FAQ deleted from database.`);
+                            setTimeout(() => setFaqSaveSuccess(''), 4500);
+                          }
+                        }}
+                        className="text-red-400 hover:underline cursor-pointer"
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -5730,13 +6913,40 @@ We look forward to learning and creating with you.`;
                     />
                   </div>
                   <div className="flex-1 w-full space-y-2">
-                    <input
-                      type="url"
-                      value={editingWhyFeature.imageUrl}
-                      onChange={(e) => setEditingWhyFeature({ ...editingWhyFeature, imageUrl: e.target.value })}
-                      placeholder="Paste Unsplash or hosted image URL..."
-                      className="w-full p-2.5 bg-[#141011] border border-white/10 rounded text-xs text-[#f7f3eb]"
-                    />
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                      <input
+                        type="url"
+                        value={editingWhyFeature.imageUrl}
+                        onChange={(e) => setEditingWhyFeature({ ...editingWhyFeature, imageUrl: e.target.value })}
+                        placeholder="Paste image URL or upload photo file..."
+                        className="flex-1 p-2.5 bg-[#141011] border border-white/10 rounded text-xs text-[#f7f3eb]"
+                      />
+                      <label className="btn-3d-secondary px-3 py-2 text-xs rounded cursor-pointer inline-flex items-center justify-center gap-1.5 shrink-0 bg-[#1e1316] border border-[#dfb56c]/40 text-[#dfb56c] hover:bg-[#dfb56c] hover:text-black transition-all">
+                        <Upload className="w-3.5 h-3.5" />
+                        <span>Upload Photo</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="sr-only"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              try {
+                                const compressed = await compressImage(file, 1000, 750, 0.85);
+                                setEditingWhyFeature({ ...editingWhyFeature, imageUrl: compressed });
+                              } catch (_) {
+                                const reader = new FileReader();
+                                reader.onload = (ev) => {
+                                  const res = ev.target?.result as string;
+                                  if (res) setEditingWhyFeature({ ...editingWhyFeature, imageUrl: res });
+                                };
+                                reader.readAsDataURL(file);
+                              }
+                            }
+                          }}
+                        />
+                      </label>
+                    </div>
                     <div className="flex flex-wrap gap-1.5 text-[10px]">
                       <span className="text-[#a89f91]">Quick presets:</span>
                       <button
@@ -5887,10 +7097,12 @@ We look forward to learning and creating with you.`;
                   onClick={async () => {
                     await saveWhyFeature(editingWhyFeature);
                     setEditingWhyFeature(null);
+                    setWhyPillarSaveSuccess(`✓ Pillar "${editingWhyFeature.title}" (${editingWhyFeature.titleSinhala || ''}) saved to Firestore database & live on website!`);
+                    setTimeout(() => setWhyPillarSaveSuccess(''), 5000);
                   }}
                   className="px-6 py-2 bg-gradient-to-r from-[#dfb56c] to-[#c99a45] text-black font-bold uppercase rounded shadow-lg"
                 >
-                  Save Pillar &amp; Publish Image
+                  Save Pillar &amp; Publish Image (දැන්ම සුරකින්න)
                 </button>
               </div>
             </div>
@@ -6814,10 +8026,12 @@ We look forward to learning and creating with you.`;
 
                           await saveLesson(payload);
                           setEditingLesson(null);
+                          setLessonSaveSuccess(`✓ Lesson "${payload.title}" (${payload.titleSinhala || ''}) saved to Firestore database & live on website!`);
+                          setTimeout(() => setLessonSaveSuccess(''), 5000);
                         }}
                         className="px-6 py-2.5 bg-gradient-to-r from-[#dfb56c] to-[#c99a45] text-black font-bold uppercase rounded-sm shadow-lg hover:brightness-110 cursor-pointer"
                       >
-                        Save Lesson, Videos &amp; Materials
+                        Save Lesson, Videos &amp; Materials (දැන්ම සුරකින්න)
                       </button>
                     </div>
                   </div>

@@ -150,6 +150,8 @@ export const DEFAULT_SITE_SETTINGS: SiteSettings = {
   sewingTutorialsPinterestTabId: "696932179776250726",
   sewingTutorialsShowDescription: true,
   sewingTutorialsPlayerAspect: "adaptive",
+  featuredMasterclassBadgeSinhala: "විශේෂාංගගත සජීවී වැඩමුළුව (FEATURED ATELIER MASTERCLASS)",
+  featuredMasterclassBadgeEn: "FEATURED ATELIER SPOTLIGHT",
   // Advanced Security Settings Defaults
   securitySessionTimeoutMinutes: 30,
   securityMaxFailedAttempts: 5,

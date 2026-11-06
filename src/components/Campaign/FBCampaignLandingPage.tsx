@@ -444,12 +444,20 @@ export function FBCampaignLandingPage({
       <header className="sticky top-0 z-40 bg-[#0f0a0c]/95 backdrop-blur-md border-b border-[#dfb56c]/30 px-4 py-2.5 transition-all shadow-xl">
         <div className="max-w-4xl mx-auto flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#dfb56c] to-[#99732b] flex items-center justify-center font-bold text-black text-xs shadow">
-              CSS
-            </div>
+            {siteSettings?.logoUrl && siteSettings.logoUrl.trim() ? (
+              <img
+                src={siteSettings.logoUrl.trim()}
+                alt={siteSettings.brandName || 'Brand Logo'}
+                className="h-7 w-auto max-w-[80px] object-contain rounded shadow"
+              />
+            ) : (
+              <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#dfb56c] to-[#99732b] flex items-center justify-center font-bold text-black text-xs shadow">
+                CSS
+              </div>
+            )}
             <div>
               <span className="text-xs font-editorial font-bold text-white tracking-wider block">
-                CEYLON STYLE STUDIO
+                {siteSettings?.brandName || 'CEYLON STYLE STUDIO'}
               </span>
               <span className="text-[9px] font-mono text-[#dfb56c] uppercase tracking-widest block -mt-0.5">
                 Official FB Ad Partner Portal

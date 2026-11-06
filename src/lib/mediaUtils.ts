@@ -182,10 +182,16 @@ export const compressImage = (
         ctx.imageSmoothingQuality = 'high';
         ctx.drawImage(img, 0, 0, width, height);
 
-        // Preserve PNG transparency if original is PNG, otherwise compress to JPEG
+        // Preserve PNG transparency if original is small PNG, otherwise compress to JPEG to protect Firestore 1MB limits
         const isPng = file.type === 'image/png';
-        const mime = isPng ? 'image/png' : 'image/jpeg';
-        const dataUrl = canvas.toDataURL(mime, isPng ? undefined : quality);
+        let mime = isPng ? 'image/png' : 'image/jpeg';
+        let dataUrl = canvas.toDataURL(mime, isPng ? undefined : quality);
+
+        // If PNG dataUrl is unexpectedly large (> 200KB), convert to JPEG at high visual fidelity to prevent Firestore reject
+        if (isPng && dataUrl.length > 200000) {
+          dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        }
+
         resolve(dataUrl);
       };
       img.onerror = () => resolve(e.target?.result as string);

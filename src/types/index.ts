@@ -719,6 +719,10 @@ export interface SiteSettings {
   sewingTutorialsShowDescription?: boolean;
   sewingTutorialsPlayerAspect?: 'adaptive' | 'portrait' | 'widescreen';
 
+  // Featured Atelier Masterclass Spotlight Badge Texts
+  featuredMasterclassBadgeSinhala?: string;
+  featuredMasterclassBadgeEn?: string;
+
   // Advanced Security Settings (Configurable by Master Admin)
   securitySessionTimeoutMinutes?: number;
   securityMaxFailedAttempts?: number;

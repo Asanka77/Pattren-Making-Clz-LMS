@@ -109,7 +109,13 @@ function MainAppContent({
 
         {/* 2. Course Videos & Masterclasses */}
         <SectionReveal sectionKey="videos">
-          <VideoGallery />
+          <VideoGallery
+            onOpenStudentLogin={onOpenStudentLogin}
+            onOpenRegister={() => {
+              const el = document.getElementById('pricing') || document.getElementById('register');
+              if (el) el.scrollIntoView({ behavior: 'smooth' });
+            }}
+          />
         </SectionReveal>
 
         {/* 3. Course Introduction & Overview */}

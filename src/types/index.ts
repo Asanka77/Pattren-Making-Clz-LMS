@@ -807,6 +807,8 @@ export interface YouTubeVideoItem {
   isPublished: boolean;
   order: number;
   createdAt: string;
+  accessLevel?: 'FREE' | 'PAID';
+  targetCourseId?: string;
 }
 
 export interface GalleryImageItem {

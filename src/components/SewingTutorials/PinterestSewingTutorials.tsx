@@ -24,6 +24,11 @@ import {
   MoveVertical,
   Hand,
   Minimize2,
+  Lock,
+  Unlock,
+  Award,
+  LogIn,
+  Phone,
 } from 'lucide-react';
 import {
   getYouTubeEmbedUrl,
@@ -33,6 +38,7 @@ import {
   isDirectVideoUrl,
 } from '../../lib/mediaUtils';
 import { useData } from '../../context/DataContext';
+import { useAuth } from '../../context/AuthContext';
 
 export interface SewingVideoTutorialItem {
   id: string;
@@ -52,6 +58,8 @@ export interface SewingVideoTutorialItem {
   badgeSi: string;
   badgeEn: string;
   viewsCount: string;
+  accessLevel?: 'FREE' | 'PAID';
+  targetCourseId?: string;
 }
 
 export const DEFAULT_SEWING_VIDEOS: SewingVideoTutorialItem[] = [
@@ -286,7 +294,69 @@ export const DEFAULT_SEWING_VIDEOS: SewingVideoTutorialItem[] = [
 ];
 
 export const PinterestSewingTutorials: React.FC = () => {
-  const { videos, siteSettings } = useData();
+  const { videos, siteSettings, registrations, courses } = useData();
+  const { isAdmin, studentUser } = useAuth();
+
+  // Check if current user is an admin or a registered student with verified payment / active course access
+  const isPaidStudent = useMemo(() => {
+    if (isAdmin) return true;
+    if (!studentUser) return false;
+    if (
+      studentUser.paymentStatus === 'VERIFIED' ||
+      studentUser.courseAccess === 'ACTIVE' ||
+      studentUser.status === 'PAID' ||
+      studentUser.status === 'CONFIRMED' ||
+      studentUser.status === 'COMPLETED'
+    ) {
+      return true;
+    }
+    const matched = registrations.find(
+      (r) => r.id === studentUser.id || (r.regNumber && r.regNumber === studentUser.regNumber)
+    );
+    if (matched) {
+      return (
+        matched.paymentStatus === 'VERIFIED' ||
+        matched.courseAccess === 'ACTIVE' ||
+        matched.status === 'PAID' ||
+        matched.status === 'CONFIRMED' ||
+        matched.status === 'COMPLETED'
+      );
+    }
+    return false;
+  }, [isAdmin, studentUser, registrations]);
+
+  // Video access checker honoring Free previews, Course assignment, and Paid student verification
+  const checkCanPlayVideo = useCallback(
+    (video?: SewingVideoTutorialItem | null): boolean => {
+      if (!video) return isPaidStudent;
+      if (isAdmin) return true;
+      if (video.accessLevel === 'FREE') return true;
+      if (!isPaidStudent) return false;
+      if (video.targetCourseId && video.targetCourseId !== 'ALL') {
+        if (studentUser?.courseId && studentUser.courseId !== video.targetCourseId) {
+          return false;
+        }
+      }
+      return true;
+    },
+    [isPaidStudent, isAdmin, studentUser]
+  );
+
+  const [showLockModal, setShowLockModal] = useState<boolean>(false);
+  const [lockedVideoTarget, setLockedVideoTarget] = useState<SewingVideoTutorialItem | null>(null);
+
+  const handleTriggerPlay = (video: SewingVideoTutorialItem, asTheaterModal: boolean = false) => {
+    if (!checkCanPlayVideo(video)) {
+      setLockedVideoTarget(video);
+      setShowLockModal(true);
+      return;
+    }
+    if (asTheaterModal) {
+      setTheaterModalVideo(video);
+    } else {
+      setActiveInlineVideoId(video.id);
+    }
+  };
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -486,6 +556,8 @@ export const PinterestSewingTutorials: React.FC = () => {
           badgeSi: 'Saved Masterclass',
           badgeEn: 'Saved Masterclass',
           viewsCount: 'Direct Play',
+          accessLevel: v.accessLevel || 'PAID',
+          targetCourseId: v.targetCourseId || 'ALL',
         };
       });
 
@@ -571,6 +643,7 @@ export const PinterestSewingTutorials: React.FC = () => {
             src={embedUrl}
             title={title}
             className="w-full h-full border-0 bg-black"
+            sandbox="allow-scripts allow-same-origin allow-presentation"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
             allowFullScreen
             loading="eager"
@@ -593,17 +666,40 @@ export const PinterestSewingTutorials: React.FC = () => {
       );
     }
 
-    // Default: YouTube In-App Player
+    // Default: YouTube In-App Player with strict Sandboxing and Click-Shields
     const embedUrl = getYouTubeEmbedUrl(url, { autoplay: isAutoplay });
     return (
-      <iframe
-        src={embedUrl}
-        title={title}
-        className="w-full h-full border-0 bg-black"
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-        allowFullScreen
-        loading="eager"
-      />
+      <div className="relative w-full h-full bg-black flex items-center justify-center overflow-hidden">
+        <iframe
+          src={embedUrl}
+          title={title}
+          className="w-full h-full border-0 bg-black"
+          sandbox="allow-scripts allow-same-origin allow-presentation"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+          allowFullScreen
+          loading="eager"
+        />
+        {/* Top protective shield: blocks clicking title link and external YouTube navigation */}
+        <div
+          className="absolute top-0 inset-x-0 h-14 z-20 pointer-events-auto bg-transparent cursor-default"
+          title="Protected Sewing Cinema"
+          onClick={(e) => {
+            e.stopPropagation();
+            e.preventDefault();
+          }}
+          onMouseDown={(e) => e.stopPropagation()}
+        />
+        {/* Bottom-right protective shield: blocks clicking the YouTube watermark / logo */}
+        <div
+          className="absolute bottom-0 right-0 w-36 h-12 z-20 pointer-events-auto bg-transparent cursor-default"
+          title="Protected Sewing Cinema"
+          onClick={(e) => {
+            e.stopPropagation();
+            e.preventDefault();
+          }}
+          onMouseDown={(e) => e.stopPropagation()}
+        />
+      </div>
     );
   };
 
@@ -869,6 +965,7 @@ export const PinterestSewingTutorials: React.FC = () => {
 
                   const isPin = isPinterestUrl(video.youtubeUrl);
                   const isDirect = isDirectVideoUrl(video.youtubeUrl);
+                  const isLocked = !checkCanPlayVideo(video);
 
                   return (
                     <div
@@ -953,7 +1050,7 @@ export const PinterestSewingTutorials: React.FC = () => {
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setTheaterModalVideo(video);
+                                handleTriggerPlay(video, true);
                               }}
                               className="p-1.5 rounded-full bg-black/85 hover:bg-[#dfb56c] text-white hover:text-black transition-colors cursor-pointer border border-white/10 shadow"
                               title="Open Theater Full Screen Player"
@@ -979,7 +1076,7 @@ export const PinterestSewingTutorials: React.FC = () => {
                       <div
                         className="relative w-full h-full cursor-pointer"
                         onClick={() => {
-                          if (!catalogHasDragged) setActiveInlineVideoId(video.id);
+                          if (!catalogHasDragged) handleTriggerPlay(video, false);
                         }}
                       >
                         <img
@@ -1006,6 +1103,24 @@ export const PinterestSewingTutorials: React.FC = () => {
                           </span>
 
                           <div className="flex items-center gap-1.5">
+                            {/* Security Access Ribbon */}
+                            {isLocked ? (
+                              <span className="text-[9.5px] font-mono px-2 py-0.5 rounded bg-[#38070e] text-[#f7e2a9] border border-[#dfb56c]/60 font-bold flex items-center gap-1 shadow">
+                                <Lock className="w-2.5 h-2.5 text-[#dfb56c]" />
+                                <span>ගෙවූ සිසුන්ට පමණි</span>
+                              </span>
+                            ) : video.accessLevel === 'FREE' ? (
+                              <span className="text-[9.5px] font-mono px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-500/40 font-bold flex items-center gap-1 shadow">
+                                <Unlock className="w-2.5 h-2.5 text-emerald-400" />
+                                <span>නොමිලේ</span>
+                              </span>
+                            ) : (
+                              <span className="text-[9.5px] font-mono px-2 py-0.5 rounded bg-emerald-950/80 text-emerald-300 border border-emerald-500/30 font-bold flex items-center gap-1 shadow">
+                                <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400" />
+                                <span>ප්‍රවේශය ඇත</span>
+                              </span>
+                            )}
+
                             <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-black/80 text-white border border-white/10 font-bold">
                               {video.duration}
                             </span>
@@ -1023,10 +1138,18 @@ export const PinterestSewingTutorials: React.FC = () => {
                           </div>
                         </div>
 
-                        {/* Center Big Play Button */}
+                        {/* Center Big Play / Lock Button */}
                         <div className="absolute inset-0 flex items-center justify-center z-10">
-                          <div className="w-14 h-14 rounded-full bg-[#dfb56c] text-black flex items-center justify-center shadow-2xl group-hover:scale-115 transition-transform shadow-[#c99a45]/40 pl-1">
-                            <Play className="w-6 h-6 fill-black" />
+                          <div className={`w-14 h-14 rounded-full flex items-center justify-center shadow-2xl group-hover:scale-115 transition-transform ${
+                            isLocked
+                              ? 'bg-[#38070e]/95 border-2 border-[#dfb56c] text-[#dfb56c]'
+                              : 'bg-[#dfb56c] text-black shadow-[#c99a45]/40 pl-1'
+                          }`}>
+                            {isLocked ? (
+                              <Lock className="w-6 h-6 text-[#dfb56c]" />
+                            ) : (
+                              <Play className="w-6 h-6 fill-black" />
+                            )}
                           </div>
                         </div>
 
@@ -1048,7 +1171,7 @@ export const PinterestSewingTutorials: React.FC = () => {
                       {/* Advanced Sinhala Title */}
                       <h4
                         onClick={() => {
-                          if (!catalogHasDragged) setTheaterModalVideo(video);
+                          if (!catalogHasDragged) handleTriggerPlay(video, true);
                         }}
                         className="text-sm sm:text-base font-editorial font-bold text-white group-hover:text-[#f7e2a9] transition-colors leading-snug cursor-pointer line-clamp-2"
                         title={video.titleSi}
@@ -1103,17 +1226,30 @@ export const PinterestSewingTutorials: React.FC = () => {
                       <div className="flex items-center justify-between gap-2">
                         <button
                           onClick={() => {
-                            if (!catalogHasDragged) setActiveInlineVideoId(video.id);
+                            if (!catalogHasDragged) handleTriggerPlay(video, false);
                           }}
-                          className="flex-1 py-2 rounded-lg bg-[#1f1316] hover:bg-[#dfb56c] text-[#f7e2a9] hover:text-black font-mono text-xs font-bold transition-all border border-[#dfb56c]/30 hover:border-[#dfb56c] flex items-center justify-center gap-1.5 cursor-pointer shadow"
+                          className={`flex-1 py-2 rounded-lg font-mono text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow ${
+                            isLocked
+                              ? 'bg-[#3b0b12] hover:bg-[#540d18] text-[#f7e2a9] border border-[#dfb56c]/50'
+                              : 'bg-[#1f1316] hover:bg-[#dfb56c] text-[#f7e2a9] hover:text-black border border-[#dfb56c]/30 hover:border-[#dfb56c]'
+                          }`}
                         >
-                          <Play className="w-3.5 h-3.5 fill-current" />
-                          <span>Play Video</span>
+                          {isLocked ? (
+                            <>
+                              <Lock className="w-3.5 h-3.5 text-[#dfb56c]" />
+                              <span>අගුළු හරින්න (Unlock)</span>
+                            </>
+                          ) : (
+                            <>
+                              <Play className="w-3.5 h-3.5 fill-current" />
+                              <span>Play Video</span>
+                            </>
+                          )}
                         </button>
 
                         <button
                           onClick={() => {
-                            if (!catalogHasDragged) setTheaterModalVideo(video);
+                            if (!catalogHasDragged) handleTriggerPlay(video, true);
                           }}
                           className="px-3.5 py-2 rounded-lg bg-black/60 hover:bg-[#201518] text-[#dfb56c] border border-white/10 hover:border-[#dfb56c] transition-colors flex items-center gap-1.5 text-xs font-mono cursor-pointer"
                           title="Theater Full Screen Player"
@@ -1382,6 +1518,105 @@ export const PinterestSewingTutorials: React.FC = () => {
                 <span>Next Video</span>
                 <ChevronRight className="w-4 h-4" />
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Exclusive Paid Student Access Locked Modal for Sewing Tutorials */}
+      {showLockModal && (
+        <div
+          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-200 select-none"
+          onClick={() => setShowLockModal(false)}
+        >
+          <div
+            className="relative w-full max-w-lg bg-gradient-to-b from-[#1c1214] via-[#160e10] to-[#120d0f] rounded-lg border-2 border-[#dfb56c] p-6 sm:p-8 shadow-2xl space-y-6 text-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close button */}
+            <button
+              type="button"
+              onClick={() => setShowLockModal(false)}
+              className="absolute top-4 right-4 text-[#a89f91] hover:text-white p-1 rounded-full bg-white/5 hover:bg-white/10 transition-colors cursor-pointer"
+              aria-label="Close modal"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {/* Lock Icon Emblem */}
+            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-[#540d18] border-2 border-[#dfb56c] mx-auto flex items-center justify-center shadow-2xl relative">
+              <Lock className="w-8 h-8 sm:w-10 sm:h-10 text-[#dfb56c]" />
+              <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-[#dfb56c] text-black flex items-center justify-center font-bold text-xs shadow-md">
+                ★
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <span className="text-[11px] font-mono uppercase tracking-widest text-[#dfb56c] px-3 py-1 rounded-full bg-black/60 border border-[#dfb56c]/30 inline-block font-bold">
+                🔒 පාඨමාලාවට ලියාපදිංචි වී ගාස්තු ගෙවූ සිසුන්ට පමණි
+              </span>
+              <h3 className="text-xl sm:text-2xl font-editorial font-bold text-[#f7f3eb] leading-snug">
+                මෙම මැහුම් හා ටේලරින් වීඩියෝව නැරඹීමට පාඨමාලාවට සම්බන්ධ වන්න
+              </h3>
+              {lockedVideoTarget && (
+                <div className="space-y-1">
+                  <p className="text-xs text-[#dfb56c] font-sinhala font-bold px-2 py-1 rounded bg-black/40 border border-[#dfb56c]/20 inline-block max-w-full truncate">
+                    "{lockedVideoTarget.titleSi || lockedVideoTarget.titleEn}"
+                  </p>
+                  {lockedVideoTarget.targetCourseId && lockedVideoTarget.targetCourseId !== 'ALL' && (
+                    <div>
+                      <span className="text-[11px] font-mono text-[#f7e2a9] px-2.5 py-0.5 rounded bg-[#540d18] border border-[#dfb56c]/40 inline-flex items-center gap-1">
+                        <Award className="w-3 h-3 text-[#dfb56c]" />
+                        <span>
+                          අදාළ පාඨමාලාව:{' '}
+                          {courses?.find((c) => c.id === lockedVideoTarget.targetCourseId)?.titleSinhala ||
+                            courses?.find((c) => c.id === lockedVideoTarget.targetCourseId)?.title ||
+                            lockedVideoTarget.targetCourseId}
+                        </span>
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+              <p className="text-xs sm:text-sm text-[#b8afa2] font-sinhala leading-relaxed">
+                මෙම ප්‍රායෝගික මැහුම් පාඩම් මාලාව, ටේලරින් රහස් සහ උසස් නිමාවන් නැරඹීමේ පූර්ණ ප්‍රවේශය හිමිවන්නේ ලියාපදිංචි වී ගාස්තු ගෙවීම් සම්පූර්ණ කළ සිසුන්ට පමණි.
+              </p>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="space-y-3 pt-2">
+              <a
+                href="#register"
+                onClick={() => setShowLockModal(false)}
+                className="w-full py-3 px-5 rounded bg-gradient-to-r from-[#dfb56c] via-[#f7e2a9] to-[#c99a45] text-black font-bold text-sm hover:brightness-110 transition-all shadow-xl flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Award className="w-4 h-4 text-black" />
+                <span>දැන්ම පාඨමාලාවට ලියාපදිංචි වන්න (Enroll Now)</span>
+              </a>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowLockModal(false);
+                  window.dispatchEvent(new CustomEvent('open-student-login'));
+                }}
+                className="w-full py-2.5 px-4 rounded bg-[#540d18] hover:bg-[#6e1322] text-[#f7e2a9] border border-[#dfb56c]/50 text-xs font-mono font-bold transition-all flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <LogIn className="w-3.5 h-3.5 text-[#dfb56c]" />
+                <span>දැනටමත් ලියාපදිංචි වී ඇත්නම් - ශිෂ්‍ය ගිණුමට Login වන්න</span>
+              </button>
+
+              <a
+                href={`https://wa.me/${siteSettings?.whatsappContactNumber || '94770000000'}?text=${encodeURIComponent(
+                  `හෙලෝ, මට Ceylon Style Studio පාඨමාලාවේ "${lockedVideoTarget?.titleSi || lockedVideoTarget?.titleEn || 'Sewing Masterclass'}" වීඩියෝව නැරඹීමට ලියාපදිංචි වීමට අවශ්‍යයි.`
+                )}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-[#a89f91] hover:text-[#dfb56c] flex items-center justify-center gap-1.5 pt-1 transition-colors"
+              >
+                <Phone className="w-3 h-3 text-emerald-400" />
+                <span>WhatsApp උපදේශක සහාය ලබාගන්න</span>
+              </a>
             </div>
           </div>
         </div>

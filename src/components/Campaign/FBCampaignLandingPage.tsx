@@ -1514,13 +1514,28 @@ export function FBCampaignLandingPage({
                       {/* Video Player Box */}
                       <div className="relative aspect-video w-full bg-black">
                         {isPlaying && vidId ? (
-                          <iframe
-                            src={`https://www.youtube-nocookie.com/embed/${vidId}?autoplay=1&rel=0&modestbranding=1`}
-                            title={vidHeading}
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                            allowFullScreen
-                            className="w-full h-full border-0"
-                          />
+                          <div className="relative w-full h-full bg-black">
+                            <iframe
+                              src={`https://www.youtube-nocookie.com/embed/${vidId}?autoplay=1&rel=0&modestbranding=1`}
+                              title={vidHeading}
+                              sandbox="allow-scripts allow-same-origin allow-presentation"
+                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                              allowFullScreen
+                              className="w-full h-full border-0"
+                            />
+                            {/* Top shield: block title link */}
+                            <div
+                              className="absolute top-0 inset-x-0 h-14 z-20 pointer-events-auto bg-transparent cursor-default"
+                              onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}
+                              onMouseDown={(e) => e.stopPropagation()}
+                            />
+                            {/* Bottom-right shield: block YouTube logo click */}
+                            <div
+                              className="absolute bottom-0 right-0 w-36 h-12 z-20 pointer-events-auto bg-transparent cursor-default"
+                              onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}
+                              onMouseDown={(e) => e.stopPropagation()}
+                            />
+                          </div>
                         ) : (
                           <div
                             onClick={() => setActiveVideoEmbedId(vid.id)}
@@ -1658,13 +1673,28 @@ export function FBCampaignLandingPage({
                       {/* Video Player Box */}
                       <div className="relative aspect-video w-full rounded-lg overflow-hidden bg-black mb-3 border border-white/10">
                         {isPlaying && vidId ? (
-                          <iframe
-                            src={`https://www.youtube-nocookie.com/embed/${vidId}?autoplay=1&rel=0&modestbranding=1`}
-                            title={rev.studentName}
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                            allowFullScreen
-                            className="w-full h-full border-0"
-                          />
+                          <div className="relative w-full h-full bg-black">
+                            <iframe
+                              src={`https://www.youtube-nocookie.com/embed/${vidId}?autoplay=1&rel=0&modestbranding=1`}
+                              title={rev.studentName}
+                              sandbox="allow-scripts allow-same-origin allow-presentation"
+                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                              allowFullScreen
+                              className="w-full h-full border-0"
+                            />
+                            {/* Top shield: block title link */}
+                            <div
+                              className="absolute top-0 inset-x-0 h-14 z-20 pointer-events-auto bg-transparent cursor-default"
+                              onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}
+                              onMouseDown={(e) => e.stopPropagation()}
+                            />
+                            {/* Bottom-right shield: block YouTube logo click */}
+                            <div
+                              className="absolute bottom-0 right-0 w-36 h-12 z-20 pointer-events-auto bg-transparent cursor-default"
+                              onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}
+                              onMouseDown={(e) => e.stopPropagation()}
+                            />
+                          </div>
                         ) : (
                           <div
                             onClick={() => setActiveReviewVideoId(rev.id)}

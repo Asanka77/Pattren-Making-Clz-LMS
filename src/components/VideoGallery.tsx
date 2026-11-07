@@ -24,6 +24,7 @@ import {
   ChevronRight,
   Info,
   Lock,
+  Unlock,
   Award,
   LogIn,
   Phone,
@@ -195,6 +196,14 @@ const ParallaxVideoCard: React.FC<ParallaxCardProps> = ({
               >
                 <Lock className="w-3 h-3 text-[#dfb56c]" />
                 <span>{isSinhalaMode ? 'ගෙවූ සිසුන්ට පමණි' : 'Enrolled Only'}</span>
+              </div>
+            ) : video.accessLevel === 'FREE' ? (
+              <div
+                className="parallax-layer-front absolute top-2.5 right-2.5 bg-emerald-950/90 backdrop-blur-sm px-2 py-0.5 rounded text-[9px] font-mono uppercase tracking-wider text-emerald-300 border border-emerald-500/40 flex items-center gap-1 shadow-lg"
+                style={{ transform: isHovered ? 'translateZ(24px)' : 'translateZ(0)' }}
+              >
+                <Unlock className="w-3 h-3 text-emerald-400" />
+                <span>{isSinhalaMode ? 'නොමිලේ (Free Preview)' : 'Free Preview'}</span>
               </div>
             ) : (
               <div
@@ -370,7 +379,7 @@ export const VideoGallery: React.FC<VideoGalleryProps> = ({
   onOpenStudentLogin,
   onOpenRegister,
 }) => {
-  const { videos, siteSettings, registrations } = useData();
+  const { videos, siteSettings, registrations, courses } = useData();
   const { isSinhalaMode } = useLanguage();
   const { isAdmin, studentUser } = useAuth();
 
@@ -402,11 +411,32 @@ export const VideoGallery: React.FC<VideoGalleryProps> = ({
     return false;
   }, [isAdmin, studentUser, registrations]);
 
+  // Video access checker honoring Free previews, Course assignment, and Paid student verification
+  const checkCanPlayVideo = useCallback(
+    (video?: YouTubeVideoItem | null): boolean => {
+      if (!video) return isPaidStudent;
+      // If admin, unrestricted full studio masterclass access
+      if (isAdmin) return true;
+      // If explicitly marked as Free Preview, open to all visitors
+      if (video.accessLevel === 'FREE') return true;
+      // Otherwise, requires verified paid enrollment
+      if (!isPaidStudent) return false;
+      // If targeted to a specific course (not 'ALL' and not empty), verify student course match
+      if (video.targetCourseId && video.targetCourseId !== 'ALL') {
+        if (studentUser?.courseId && studentUser.courseId !== video.targetCourseId) {
+          return false;
+        }
+      }
+      return true;
+    },
+    [isPaidStudent, isAdmin, studentUser]
+  );
+
   const [showLockModal, setShowLockModal] = useState<boolean>(false);
   const [lockedVideoTarget, setLockedVideoTarget] = useState<YouTubeVideoItem | null>(null);
 
   const handleSelectVideo = (url: string, video?: YouTubeVideoItem) => {
-    if (!isPaidStudent) {
+    if (!checkCanPlayVideo(video)) {
       setLockedVideoTarget(video || null);
       setShowLockModal(true);
       return;
@@ -610,17 +640,46 @@ export const VideoGallery: React.FC<VideoGalleryProps> = ({
               {/* Embedded Player */}
               <div className="lg:col-span-8 rounded-sm overflow-hidden aspect-video bg-black border border-[#c99a45]/30 shadow-2xl relative group/player">
                 {isPlayingFeatured ? (
-                  <iframe
-                    src={getEmbedUrl(featuredVideo.youtubeUrl || featuredVideo.videoId, true)}
-                    title={featuredVideo.title}
-                    className="w-full h-full"
-                    sandbox="allow-scripts allow-same-origin allow-presentation"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                  />
+                  <div className="relative w-full h-full bg-black">
+                    <iframe
+                      src={getEmbedUrl(featuredVideo.youtubeUrl || featuredVideo.videoId, true)}
+                      title={featuredVideo.title}
+                      className="w-full h-full border-0"
+                      sandbox="allow-scripts allow-same-origin allow-presentation"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                    {/* Top protective shield: blocks header title link navigation */}
+                    <div
+                      className="absolute top-0 inset-x-0 h-14 z-20 pointer-events-auto bg-transparent cursor-default"
+                      title="Protected Studio Cinema"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                      }}
+                      onMouseDown={(e) => e.stopPropagation()}
+                    />
+                    {/* Bottom-right protective shield: blocks clicking the YouTube watermark / logo */}
+                    <div
+                      className="absolute bottom-0 right-0 w-36 h-12 z-20 pointer-events-auto bg-transparent cursor-default"
+                      title="Protected Studio Cinema"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                      }}
+                      onMouseDown={(e) => e.stopPropagation()}
+                    />
+                  </div>
                 ) : (
                   <div
-                    onClick={() => setIsPlayingFeatured(true)}
+                    onClick={() => {
+                      if (!checkCanPlayVideo(featuredVideo)) {
+                        setLockedVideoTarget(featuredVideo);
+                        setShowLockModal(true);
+                        return;
+                      }
+                      setIsPlayingFeatured(true);
+                    }}
                     className="relative w-full h-full cursor-pointer overflow-hidden group/thumb select-none"
                     role="button"
                     tabIndex={0}
@@ -633,10 +692,21 @@ export const VideoGallery: React.FC<VideoGalleryProps> = ({
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent flex flex-col items-center justify-center p-6 text-center">
                       <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-[#540d18]/90 border-2 border-[#dfb56c] flex items-center justify-center shadow-2xl group-hover/thumb:scale-110 group-hover/thumb:bg-[#6e1322] transition-transform duration-300">
-                        <Play className="w-8 h-8 sm:w-10 sm:h-10 text-[#f7e2a9] fill-[#f7e2a9] ml-1" />
+                        {!checkCanPlayVideo(featuredVideo) ? (
+                          <Lock className="w-8 h-8 sm:w-10 sm:h-10 text-[#dfb56c]" />
+                        ) : (
+                          <Play className="w-8 h-8 sm:w-10 sm:h-10 text-[#f7e2a9] fill-[#f7e2a9] ml-1" />
+                        )}
                       </div>
-                      <span className="mt-4 px-4 py-1.5 rounded-full bg-black/85 border border-[#dfb56c]/50 text-[#f7e2a9] text-xs font-mono uppercase tracking-wider font-bold shadow-lg">
-                        {isSinhalaMode ? 'වීඩියෝව නැරඹීමට Click කරන්න (Play Video)' : 'Click to Play Masterclass'}
+                      <span className="mt-4 px-4 py-1.5 rounded-full bg-black/85 border border-[#dfb56c]/50 text-[#f7e2a9] text-xs font-mono uppercase tracking-wider font-bold shadow-lg flex items-center gap-1.5">
+                        {!checkCanPlayVideo(featuredVideo) ? (
+                          <>
+                            <Lock className="w-3.5 h-3.5 text-[#dfb56c]" />
+                            <span>{isSinhalaMode ? '🔒 ලියාපදිංචි වී ගාස්තු ගෙවූ අයට පමණි (Unlock Masterclass)' : 'Exclusive Access • Paid Students Only'}</span>
+                          </>
+                        ) : (
+                          <span>{isSinhalaMode ? 'වීඩියෝව නැරඹීමට Click කරන්න (Play Video)' : 'Click to Play Masterclass'}</span>
+                        )}
                       </span>
                     </div>
                   </div>
@@ -912,7 +982,7 @@ export const VideoGallery: React.FC<VideoGalleryProps> = ({
                         expandedCardId={expandedCardId}
                         onToggleExpandCard={toggleExpandCard}
                         getThumbnailUrl={getThumbnailUrl}
-                        isLocked={!isPaidStudent}
+                        isLocked={!checkCanPlayVideo(video)}
                       />
                     </div>
                   </SwiperSlide>
@@ -972,7 +1042,7 @@ export const VideoGallery: React.FC<VideoGalleryProps> = ({
                         expandedCardId={expandedCardId}
                         onToggleExpandCard={toggleExpandCard}
                         getThumbnailUrl={getThumbnailUrl}
-                        isLocked={!isPaidStudent}
+                        isLocked={!checkCanPlayVideo(video)}
                       />
                     </div>
                   ))}
@@ -1027,14 +1097,34 @@ export const VideoGallery: React.FC<VideoGalleryProps> = ({
                 </button>
               </div>
 
-              <div className="aspect-video w-full bg-black">
+              <div className="aspect-video w-full bg-black relative">
                 <iframe
-                  src={getEmbedUrl(activeVideoModal)}
+                  src={getEmbedUrl(activeVideoModal, true)}
                   title="YouTube Player"
-                  className="w-full h-full"
+                  className="w-full h-full border-0"
                   sandbox="allow-scripts allow-same-origin allow-presentation"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                   allowFullScreen
+                />
+                {/* Top protective shield: blocks title header click navigation */}
+                <div
+                  className="absolute top-0 inset-x-0 h-14 z-20 pointer-events-auto bg-transparent cursor-default"
+                  title="Protected Cinema Player"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                  }}
+                  onMouseDown={(e) => e.stopPropagation()}
+                />
+                {/* Bottom-right protective shield: blocks clicking the YouTube watermark / logo */}
+                <div
+                  className="absolute bottom-0 right-0 w-36 h-12 z-20 pointer-events-auto bg-transparent cursor-default"
+                  title="Protected Cinema Player"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                  }}
+                  onMouseDown={(e) => e.stopPropagation()}
                 />
               </div>
             </div>
@@ -1077,9 +1167,24 @@ export const VideoGallery: React.FC<VideoGalleryProps> = ({
                   {isSinhalaMode ? 'මෙම වීඩියෝව නැරඹීමට පාඨමාලාවට සම්බන්ධ වන්න' : 'Unlock the Complete 17 Masterclass Series'}
                 </h3>
                 {lockedVideoTarget && (
-                  <p className="text-xs text-[#dfb56c] font-sinhala font-bold px-2 py-1 rounded bg-black/40 border border-[#dfb56c]/20 inline-block max-w-full truncate">
-                    "{lockedVideoTarget.titleSinhala || lockedVideoTarget.title}"
-                  </p>
+                  <div className="space-y-1">
+                    <p className="text-xs text-[#dfb56c] font-sinhala font-bold px-2 py-1 rounded bg-black/40 border border-[#dfb56c]/20 inline-block max-w-full truncate">
+                      "{lockedVideoTarget.titleSinhala || lockedVideoTarget.title}"
+                    </p>
+                    {lockedVideoTarget.targetCourseId && lockedVideoTarget.targetCourseId !== 'ALL' && (
+                      <div>
+                        <span className="text-[11px] font-mono text-[#f7e2a9] px-2.5 py-0.5 rounded bg-[#540d18] border border-[#dfb56c]/40 inline-flex items-center gap-1">
+                          <Award className="w-3 h-3 text-[#dfb56c]" />
+                          <span>
+                            {isSinhalaMode ? 'අදාළ පාඨමාලාව:' : 'Course:'}{' '}
+                            {courses?.find((c) => c.id === lockedVideoTarget.targetCourseId)?.titleSinhala ||
+                              courses?.find((c) => c.id === lockedVideoTarget.targetCourseId)?.title ||
+                              lockedVideoTarget.targetCourseId}
+                          </span>
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 )}
                 <p className="text-xs sm:text-sm text-[#b8afa2] font-sinhala leading-relaxed">
                   {isSinhalaMode

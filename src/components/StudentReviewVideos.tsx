@@ -480,14 +480,34 @@ export const StudentReviewVideos: React.FC = () => {
               </button>
             </div>
 
-            <div className="aspect-video w-full bg-black">
+            <div className="aspect-video w-full bg-black relative">
               <iframe
                 src={getYouTubeEmbedUrl(activeModalVideo.youtubeUrl || activeModalVideo.videoId, { autoplay: true })}
                 title={activeModalVideo.title}
-                className="w-full h-full"
+                className="w-full h-full border-0"
                 sandbox="allow-scripts allow-same-origin allow-presentation"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen
+              />
+              {/* Top protective shield: blocks header link navigation */}
+              <div
+                className="absolute top-0 inset-x-0 h-14 z-20 pointer-events-auto bg-transparent cursor-default"
+                title="Protected Review Player"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                }}
+                onMouseDown={(e) => e.stopPropagation()}
+              />
+              {/* Bottom-right protective shield: blocks clicking YouTube logo */}
+              <div
+                className="absolute bottom-0 right-0 w-36 h-12 z-20 pointer-events-auto bg-transparent cursor-default"
+                title="Protected Review Player"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                }}
+                onMouseDown={(e) => e.stopPropagation()}
               />
             </div>
           </div>

@@ -450,10 +450,30 @@ export const FashionLearningCinema: React.FC<FashionLearningCinemaProps> = ({
                 <iframe
                   src={getEmbedUrl(activeLessonPlayer.videoUrl || activeLessonPlayer.videoId || 'fJ9rUzIMcZQ')}
                   title={activeLessonPlayer.title}
-                  className="w-full h-full"
+                  className="w-full h-full border-0"
                   sandbox="allow-scripts allow-same-origin allow-presentation"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                   allowFullScreen
+                />
+                {/* Top protective shield: blocks clicking title link and external navigation */}
+                <div
+                  className="absolute top-0 inset-x-0 h-14 z-20 pointer-events-auto bg-transparent cursor-default"
+                  title="Protected Cinema Player"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                  }}
+                  onMouseDown={(e) => e.stopPropagation()}
+                />
+                {/* Bottom-right protective shield: blocks clicking YouTube logo */}
+                <div
+                  className="absolute bottom-0 right-0 w-36 h-12 z-20 pointer-events-auto bg-transparent cursor-default"
+                  title="Protected Cinema Player"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                  }}
+                  onMouseDown={(e) => e.stopPropagation()}
                 />
               </div>
 

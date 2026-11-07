@@ -4965,6 +4965,8 @@ We look forward to learning and creating with you.`;
                         isPublished: true,
                         order: videos.length + 1,
                         createdAt: new Date().toISOString().split('T')[0],
+                        accessLevel: 'PAID',
+                        targetCourseId: 'ALL',
                       });
                     }}
                     className="px-3.5 py-2 bg-gradient-to-r from-[#dfb56c] to-[#c99a45] text-black text-xs font-bold rounded-sm flex items-center gap-1.5 hover:brightness-110 transition-all shadow-md cursor-pointer"
@@ -4990,6 +4992,8 @@ We look forward to learning and creating with you.`;
                         isPublished: true,
                         order: videos.length + 1,
                         createdAt: new Date().toISOString().split('T')[0],
+                        accessLevel: 'PAID',
+                        targetCourseId: 'ALL',
                       });
                     }}
                     className="px-3.5 py-2 bg-[#e60023] text-white text-xs font-bold rounded-sm flex items-center gap-1.5 hover:bg-[#c9001e] transition-colors shadow-md cursor-pointer"
@@ -5015,6 +5019,8 @@ We look forward to learning and creating with you.`;
                         isPublished: true,
                         order: videos.length + 1,
                         createdAt: new Date().toISOString().split('T')[0],
+                        accessLevel: 'PAID',
+                        targetCourseId: 'ALL',
                       });
                     }}
                     className="px-3.5 py-2 bg-[#540d18] border border-[#dfb56c] text-[#f7e2a9] text-xs font-bold rounded-sm flex items-center gap-1.5 hover:bg-[#6e1322] transition-colors cursor-pointer"
@@ -5587,6 +5593,36 @@ We look forward to learning and creating with you.`;
                         </p>
                       )}
                       <p className="text-[10px] text-[#a89f91] line-clamp-2">{v.description}</p>
+
+                      {/* Video Access & Target Course Badges */}
+                      <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold flex items-center gap-1 border ${
+                          v.accessLevel === 'FREE'
+                            ? 'bg-emerald-950/60 text-emerald-400 border-emerald-500/40'
+                            : 'bg-[#3b0b12] text-[#f7e2a9] border-[#dfb56c]/40'
+                        }`}>
+                          {v.accessLevel === 'FREE' ? (
+                            <>
+                              <Unlock className="w-2.5 h-2.5 text-emerald-400" />
+                              <span>Free Preview (නොමිලේ)</span>
+                            </>
+                          ) : (
+                            <>
+                              <Lock className="w-2.5 h-2.5 text-[#dfb56c]" />
+                              <span>Paid Only (අගුළු ලා ඇත)</span>
+                            </>
+                          )}
+                        </span>
+
+                        <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-black/60 text-[#dfb56c] border border-white/10 flex items-center gap-1">
+                          <Award className="w-2.5 h-2.5" />
+                          <span>
+                            {v.targetCourseId && v.targetCourseId !== 'ALL'
+                              ? (courses.find((c) => c.id === v.targetCourseId)?.titleSinhala || v.targetCourseId)
+                              : 'All Courses (සියලු පාඨමාලා)'}
+                          </span>
+                        </span>
+                      </div>
                     </div>
 
                     <div className="mt-4 pt-2.5 border-t border-white/5 flex flex-wrap items-center justify-between gap-2 text-xs">
@@ -7332,6 +7368,61 @@ We look forward to learning and creating with you.`;
                     </select>
                   </div>
                 )}
+              </div>
+
+              {/* Video Access Security Level & Course Assignment (Free Preview vs Paid Student Lock) */}
+              <div className="p-3.5 rounded-sm bg-[#0a0708] border border-[#dfb56c]/30 space-y-3">
+                <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                  <span className="text-xs font-mono uppercase tracking-wider text-[#dfb56c] font-bold flex items-center gap-1.5">
+                    <Shield className="w-3.5 h-3.5 text-[#dfb56c]" />
+                    <span>වීඩියෝ ප්‍රවේශ ආරක්ෂාව සහ පාඨමාලා වෙන්කිරීම (Video Access & Course Assignment)</span>
+                  </span>
+                  <span className="text-[10px] font-mono text-emerald-400 font-bold">
+                    {editingVideo.accessLevel === 'FREE' ? '🔓 Public Preview' : '🔒 Paid Students Locked'}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[#dfb56c] text-xs mb-1 font-bold font-sinhala flex items-center gap-1.5">
+                      <Lock className="w-3.5 h-3.5 text-[#dfb56c]" />
+                      <span>වීඩියෝ ප්‍රවේශ මට්ටම (Access Level)</span>
+                    </label>
+                    <select
+                      value={editingVideo.accessLevel || 'PAID'}
+                      onChange={(e) => setEditingVideo({ ...editingVideo, accessLevel: e.target.value as 'FREE' | 'PAID' })}
+                      className="w-full p-2 bg-[#120a0d] border border-[#dfb56c]/40 rounded text-[#f7e2a9] font-sinhala font-bold text-xs"
+                    >
+                      <option value="PAID">🔒 ගාස්තු ගෙවූ සිසුන්ට පමණි (Paid Students Only - Advanced Lock)</option>
+                      <option value="FREE">🔓 නොමිලේ නැරඹිය හැකි (Free Preview - Open to All)</option>
+                    </select>
+                    <p className="text-[10.5px] text-[#a89f91] mt-1 font-sinhala leading-tight">
+                      'Paid' වූ විට, පාඨමාලාවට ලියාපදිංචි වී ගෙවීම් කළ අයට පමණක් play වේ. අන් අයට Advanced Lock Modal පෙන්වයි.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-[#dfb56c] text-xs mb-1 font-bold font-sinhala flex items-center gap-1.5">
+                      <Award className="w-3.5 h-3.5 text-[#dfb56c]" />
+                      <span>අදාළ පාඨමාලාව (Assigned Course Access)</span>
+                    </label>
+                    <select
+                      value={editingVideo.targetCourseId || 'ALL'}
+                      onChange={(e) => setEditingVideo({ ...editingVideo, targetCourseId: e.target.value })}
+                      className="w-full p-2 bg-[#120a0d] border border-[#dfb56c]/40 rounded text-[#f7e2a9] font-sinhala text-xs"
+                    >
+                      <option value="ALL">🌟 සියලුම පාඨමාලා සිසුන්ට (All Courses Access)</option>
+                      {courses.map((course) => (
+                        <option key={course.id} value={course.id}>
+                          {course.titleSinhala || course.title} ({course.id})
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-[10.5px] text-[#a89f91] mt-1 font-sinhala leading-tight">
+                      මෙම වීඩියෝව නැරඹිය හැක්කේ කුමන පාඨමාලාවේ සිසුන්ටද යන්න මෙතැනින් තෝරන්න.
+                    </p>
+                  </div>
+                </div>
               </div>
 
               {/* Action Buttons */}

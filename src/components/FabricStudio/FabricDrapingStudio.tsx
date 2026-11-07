@@ -694,17 +694,17 @@ export const FabricDrapingStudio: React.FC = () => {
     const q = searchQuery.toLowerCase().trim();
     return LUXURY_FABRICS_CATALOG.filter(
       (f) =>
-        f.name.toLowerCase().includes(q) ||
-        f.nameSinhala.toLowerCase().includes(q) ||
-        f.category.toLowerCase().includes(q) ||
-        f.properties.gsmCategory.toLowerCase().includes(q) ||
-        f.matchingDesigns.some(
+        (f.name || '').toLowerCase().includes(q) ||
+        (f.nameSinhala || '').toLowerCase().includes(q) ||
+        (f.category || '').toLowerCase().includes(q) ||
+        (f.properties?.gsmCategory || '').toLowerCase().includes(q) ||
+        (f.matchingDesigns || []).some(
           (d) =>
-            d.title.toLowerCase().includes(q) ||
-            d.titleSinhala.toLowerCase().includes(q) ||
-            d.description.toLowerCase().includes(q)
+            (d.title || '').toLowerCase().includes(q) ||
+            (d.titleSinhala || '').toLowerCase().includes(q) ||
+            (d.description || '').toLowerCase().includes(q)
         ) ||
-        f.weaveConstruction.weaveType.toLowerCase().includes(q)
+        (f.weaveConstruction?.weaveType || '').toLowerCase().includes(q)
     );
   }, [searchQuery]);
 

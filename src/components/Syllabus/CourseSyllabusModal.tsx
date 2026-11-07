@@ -126,14 +126,15 @@ export const CourseSyllabusModal: React.FC<CourseSyllabusModalProps> = ({
   // Filter modules based on search query and category
   const filteredModules = useMemo(() => {
     return modules.filter((mod) => {
+      const q = (searchQuery || '').trim().toLowerCase();
       const matchesSearch =
-        searchQuery.trim() === '' ||
-        mod.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (mod.titleSinhala && mod.titleSinhala.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        (mod.description && mod.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        (mod.descriptionSinhala && mod.descriptionSinhala.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        (mod.category && mod.category.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        mod.number.includes(searchQuery);
+        q === '' ||
+        (mod.title || '').toLowerCase().includes(q) ||
+        (mod.titleSinhala && mod.titleSinhala.toLowerCase().includes(q)) ||
+        (mod.description && mod.description.toLowerCase().includes(q)) ||
+        (mod.descriptionSinhala && mod.descriptionSinhala.toLowerCase().includes(q)) ||
+        (mod.category && mod.category.toLowerCase().includes(q)) ||
+        (mod.number || '').includes(searchQuery);
 
       const matchesCategory =
         selectedCategory === 'all' ||

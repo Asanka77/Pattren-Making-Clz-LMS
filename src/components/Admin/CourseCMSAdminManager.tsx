@@ -167,12 +167,20 @@ export function CourseCMSAdminManager({ onPreviewCourse }: CourseCMSAdminManager
   };
 
   // Filtered courses
-  const filteredCourses = courses.filter((c) => {
+  const filteredCourses = (courses || []).filter((c) => {
+    if (!c) return false;
+    const term = (searchTerm || '').trim().toLowerCase();
+    const title = (c.title || '').toLowerCase();
+    const titleSinhala = (c.titleSinhala || '').toLowerCase();
+    const category = (c.category || '').toLowerCase();
+    const slug = (c.slug || '').toLowerCase();
+
     const matchesSearch =
-      c.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (c.titleSinhala && c.titleSinhala.includes(searchTerm)) ||
-      c.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.slug.toLowerCase().includes(searchTerm.toLowerCase());
+      !term ||
+      title.includes(term) ||
+      titleSinhala.includes(term) ||
+      category.includes(term) ||
+      slug.includes(term);
 
     const matchesCategory = filterCategory === 'ALL' || c.category === filterCategory;
 

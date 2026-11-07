@@ -66,9 +66,9 @@ export const CourseCommunityTab: React.FC<CourseCommunityTabProps> = ({
       if (selectedMonthFilter !== 0 && p.month !== selectedMonthFilter) return false;
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
-        const matchTitle = p.title.toLowerCase().includes(q);
-        const matchContent = p.content.toLowerCase().includes(q);
-        const matchAuthor = p.authorName.toLowerCase().includes(q);
+        const matchTitle = (p.title || '').toLowerCase().includes(q);
+        const matchContent = (p.content || '').toLowerCase().includes(q);
+        const matchAuthor = (p.authorName || '').toLowerCase().includes(q);
         return matchTitle || matchContent || matchAuthor;
       }
       return true;

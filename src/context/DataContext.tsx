@@ -700,9 +700,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const cleanPhone = identifier.replace(/[\s-]/g, '');
 
     const found = registrations.find((r) => {
-      const matchReg = r.regNumber.toLowerCase() === cleanId;
-      const matchEmail = r.email && r.email.toLowerCase() === cleanId;
-      const matchPhone = r.whatsappNumber.replace(/[\s-]/g, '') === cleanPhone;
+      const matchReg = (r.regNumber || '').toLowerCase() === cleanId;
+      const matchEmail = !!(r.email && r.email.toLowerCase() === cleanId);
+      const matchPhone = (r.whatsappNumber || '').replace(/[\s-]/g, '') === cleanPhone;
       return matchReg || matchEmail || matchPhone;
     });
 
@@ -1590,7 +1590,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const saveCourse = async (course: Partial<CourseItem> & { title: string }) => {
     const id = course.id || `course-${Date.now()}`;
-    const slug = course.slug || course.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    const slug = course.slug || (course.title || 'course').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
     const item: CourseItem = {
       id,
       slug,
@@ -1716,7 +1716,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const saveCustomForm = async (form: Partial<CustomForm> & { title: string }) => {
     const id = form.id || `form-${Date.now()}`;
-    const slug = form.slug || form.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    const slug = form.slug || (form.title || 'form').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
     const item: CustomForm = {
       id,
       slug,
@@ -1806,18 +1806,21 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const saveCampaign = async (campaign: Partial<CampaignPage> & { title: string }) => {
+  const saveCampaign = async (campaign: Partial<CampaignPage> & { title?: string }) => {
     const id = campaign.id || `camp-${Date.now()}`;
-    const cleanSlug = (campaign.slug || campaign.title)
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/(^-|-$)/g, '');
+    const rawTitle = (campaign.title || campaign.titleSinhala || 'Fashion Design & Pattern Making Campaign').trim();
+    const rawSlug = (campaign.slug || campaign.title || campaign.titleSinhala || id).toString();
+    const cleanSlug =
+      rawSlug
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '') || id;
 
     const item: CampaignPage = {
       id,
       slug: cleanSlug,
-      title: campaign.title,
-      titleSinhala: campaign.titleSinhala || campaign.title,
+      title: rawTitle,
+      titleSinhala: campaign.titleSinhala || rawTitle,
       badge: campaign.badge || '🔥 Special Facebook Offer',
       badgeSinhala: campaign.badgeSinhala || '🔥 Facebook විශේෂ දීමනාව',
       coverImageUrl: campaign.coverImageUrl || '',

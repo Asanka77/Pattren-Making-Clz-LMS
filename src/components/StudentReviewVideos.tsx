@@ -328,14 +328,15 @@ export const StudentReviewVideos: React.FC = () => {
   const isMobileOrTablet = windowWidth < 1024;
 
   // Filter student review / work videos from the centralized database
-  const studentVideosFromDb = videos.filter(
+  const studentVideosFromDb = (videos || []).filter(
     (v) =>
+      v &&
       v.isPublished !== false &&
       (v.category === 'STUDENT REVIEWS' ||
         v.category === 'STUDENT VIDEOS' ||
         v.category === 'සිසුන්ගේ නිර්මාණ' ||
-        v.category.includes('STUDENT') ||
-        v.title.toLowerCase().includes('student') ||
+        (v.category || '').includes('STUDENT') ||
+        (v.title || '').toLowerCase().includes('student') ||
         v.titleSinhala?.includes('ශිෂ්‍ය') ||
         v.titleSinhala?.includes('සිසු'))
   );

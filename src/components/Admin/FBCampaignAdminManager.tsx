@@ -397,11 +397,18 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
   };
 
   // Filtered campaigns
-  const filteredCampaigns = campaigns.filter((c) => {
+  const filteredCampaigns = (campaigns || []).filter((c) => {
+    if (!c) return false;
+    const term = (searchTerm || '').trim().toLowerCase();
+    const title = (c.title || '').toLowerCase();
+    const titleSinhala = (c.titleSinhala || '').toLowerCase();
+    const slug = (c.slug || '').toLowerCase();
+
     const matchesSearch =
-      c.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (c.titleSinhala && c.titleSinhala.includes(searchTerm)) ||
-      c.slug.toLowerCase().includes(searchTerm.toLowerCase());
+      !term ||
+      title.includes(term) ||
+      titleSinhala.includes(term) ||
+      slug.includes(term);
 
     const matchesStatus =
       statusFilter === 'ALL' ||
@@ -412,7 +419,8 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
   });
 
   // Filtered leads with status & call tracking filter
-  const filteredLeads = campaignLeads.filter((l) => {
+  const filteredLeads = (campaignLeads || []).filter((l) => {
+    if (!l) return false;
     if (selectedCampaignForLeads !== 'ALL' && l.campaignSlug !== selectedCampaignForLeads && l.campaignId !== selectedCampaignForLeads) {
       return false;
     }
@@ -427,13 +435,13 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
       }
     }
 
-    if (searchTerm.trim()) {
-      const q = searchTerm.toLowerCase();
-      const matchName = l.fullName.toLowerCase().includes(q);
-      const matchPhone = l.whatsappNumber.includes(q);
-      const matchCity = (l.city || '').toLowerCase().includes(q);
-      const matchDistrict = (l.district || '').toLowerCase().includes(q);
-      const matchNotes = (l.lastCallNotes || l.adminNotes || '').toLowerCase().includes(q);
+    const term = (searchTerm || '').trim().toLowerCase();
+    if (term) {
+      const matchName = (l.fullName || '').toLowerCase().includes(term);
+      const matchPhone = (l.whatsappNumber || '').includes(term);
+      const matchCity = (l.city || '').toLowerCase().includes(term);
+      const matchDistrict = (l.district || '').toLowerCase().includes(term);
+      const matchNotes = (l.lastCallNotes || l.adminNotes || '').toLowerCase().includes(term);
       if (!matchName && !matchPhone && !matchCity && !matchDistrict && !matchNotes) return false;
     }
     return true;
@@ -8308,8 +8316,14 @@ export function FBCampaignAdminManager({ onPreviewCampaign }: FBCampaignAdminMan
                 <button
                   type="button"
                   onClick={async () => {
-                    await saveCampaign(editingCampaign);
-                    showToast(`Campaign "${editingCampaign.title}" saved successfully!`);
+                    const titleToSave = (editingCampaign.title?.trim() || editingCampaign.titleSinhala?.trim() || 'Untitled Campaign');
+                    const slugToSave = (editingCampaign.slug?.trim() || editingCampaign.id || `camp-${Date.now()}`);
+                    await saveCampaign({
+                      ...editingCampaign,
+                      title: titleToSave,
+                      slug: slugToSave,
+                    });
+                    showToast(`Campaign "${titleToSave}" saved successfully!`);
                     setEditingCampaign(null);
                   }}
                   className="px-6 py-2 bg-gradient-to-r from-[#dfb56c] to-[#c99a45] text-black text-xs font-bold uppercase rounded cursor-pointer shadow-lg hover:brightness-110 flex items-center gap-1.5"

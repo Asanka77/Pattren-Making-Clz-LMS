@@ -745,13 +745,15 @@ export const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose, initial
 
   // Filtered registrations
   const filteredRegistrations = useMemo(() => {
-    return registrations.filter((reg) => {
+    return (registrations || []).filter((reg) => {
+      if (!reg) return false;
+      const term = (searchTerm || '').trim().toLowerCase();
       const matchSearch =
-        !searchTerm ||
-        reg.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        reg.whatsappNumber.includes(searchTerm) ||
-        reg.regNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (reg.district && reg.district.toLowerCase().includes(searchTerm.toLowerCase()));
+        !term ||
+        (reg.fullName || '').toLowerCase().includes(term) ||
+        (reg.whatsappNumber || '').includes(term) ||
+        (reg.regNumber || '').toLowerCase().includes(term) ||
+        (reg.district && reg.district.toLowerCase().includes(term));
 
       const matchCourse = filterCourseType === 'ALL' || reg.courseType === filterCourseType;
       const matchLoc = filterLocation === 'ALL' || reg.location === filterLocation;

@@ -310,8 +310,8 @@ export const PinterestSewingTutorials: React.FC = () => {
     ) {
       return true;
     }
-    const matched = registrations.find(
-      (r) => r.id === studentUser.id || (r.regNumber && r.regNumber === studentUser.regNumber)
+    const matched = (registrations || []).find(
+      (r) => r && (r.id === studentUser.id || (r.regNumber && r.regNumber === studentUser.regNumber))
     );
     if (matched) {
       return (
@@ -325,21 +325,106 @@ export const PinterestSewingTutorials: React.FC = () => {
     return false;
   }, [isAdmin, studentUser, registrations]);
 
+  // Helper to verify if a student or registration record has verified paid status
+  const isRecordVerified = (rec?: {
+    paymentStatus?: string;
+    courseAccess?: string;
+    status?: string;
+  } | null): boolean => {
+    if (!rec) return false;
+    return (
+      rec.paymentStatus === 'VERIFIED' ||
+      rec.courseAccess === 'ACTIVE' ||
+      rec.status === 'PAID' ||
+      rec.status === 'CONFIRMED' ||
+      rec.status === 'COMPLETED'
+    );
+  };
+
+  // Granular course-specific paid access checker
+  const isStudentPaidForCourse = useCallback(
+    (targetCourseId?: string): boolean => {
+      // 1. Studio administrators have full unrestricted atelier access
+      if (isAdmin) return true;
+      // 2. Unauthenticated visitors cannot access paid video content
+      if (!studentUser) return false;
+
+      // Find all registration records associated with this logged-in student
+      const userRegistrations = (registrations || []).filter(
+        (r) =>
+          r &&
+          ((studentUser.id && r.id === studentUser.id) ||
+            (studentUser.regNumber && r.regNumber === studentUser.regNumber) ||
+            (studentUser.authUid && r.authUid === studentUser.authUid) ||
+            (studentUser.whatsappNumber && r.whatsappNumber === studentUser.whatsappNumber))
+      );
+
+      // Mode A: General masterclass open to all enrolled & verified academy courses
+      if (!targetCourseId || targetCourseId === 'ALL') {
+        if (isRecordVerified(studentUser)) return true;
+        return userRegistrations.some(isRecordVerified);
+      }
+
+      // Mode B: Targeted masterclass restricted to students of a specific course
+      const targetCourse = (courses || []).find(
+        (c) => c && (c.id === targetCourseId || c.slug === targetCourseId)
+      );
+      const targetEnTitle = (targetCourse?.title || '').toString().toLowerCase();
+      const targetSiTitle = (targetCourse?.titleSinhala || '').toString().toLowerCase();
+
+      // Check B.1: Primary registered course match with verified payment
+      const userCourseTitle = (studentUser.courseTitle || '').toString().toLowerCase();
+      if (
+        studentUser.courseId === targetCourseId ||
+        (userCourseTitle && targetEnTitle && userCourseTitle === targetEnTitle) ||
+        (userCourseTitle && targetSiTitle && userCourseTitle === targetSiTitle)
+      ) {
+        if (isRecordVerified(studentUser)) return true;
+      }
+
+      // Check B.2: Course-specific monthly subscription payment recorded
+      if (studentUser.paidMonthsByCourse?.[targetCourseId]?.length) {
+        return true;
+      }
+
+      // Check B.3: Enrolled course IDs array with verified student standing
+      if (
+        Array.isArray(studentUser.enrolledCourseIds) &&
+        studentUser.enrolledCourseIds.includes(targetCourseId) &&
+        isRecordVerified(studentUser)
+      ) {
+        return true;
+      }
+
+      // Check B.4: Database registrations matching student for this specific course
+      const courseReg = userRegistrations.find((r) => {
+        if (!r) return false;
+        if (r.courseId === targetCourseId) return true;
+        const regCourseTitle = (r.courseTitle || '').toString().toLowerCase();
+        if (regCourseTitle && targetEnTitle && regCourseTitle === targetEnTitle) return true;
+        if (regCourseTitle && targetSiTitle && regCourseTitle === targetSiTitle) return true;
+        return false;
+      });
+
+      if (courseReg && isRecordVerified(courseReg)) {
+        return true;
+      }
+
+      // If user hasn't paid for this specific course, access is denied
+      return false;
+    },
+    [isAdmin, studentUser, registrations, courses]
+  );
+
   // Video access checker honoring Free previews, Course assignment, and Paid student verification
   const checkCanPlayVideo = useCallback(
     (video?: SewingVideoTutorialItem | null): boolean => {
-      if (!video) return isPaidStudent;
+      if (!video) return isStudentPaidForCourse();
       if (isAdmin) return true;
       if (video.accessLevel === 'FREE') return true;
-      if (!isPaidStudent) return false;
-      if (video.targetCourseId && video.targetCourseId !== 'ALL') {
-        if (studentUser?.courseId && studentUser.courseId !== video.targetCourseId) {
-          return false;
-        }
-      }
-      return true;
+      return isStudentPaidForCourse(video.targetCourseId);
     },
-    [isPaidStudent, isAdmin, studentUser]
+    [isStudentPaidForCourse, isAdmin]
   );
 
   const [showLockModal, setShowLockModal] = useState<boolean>(false);
@@ -1569,8 +1654,8 @@ export const PinterestSewingTutorials: React.FC = () => {
                         <Award className="w-3 h-3 text-[#dfb56c]" />
                         <span>
                           අදාළ පාඨමාලාව:{' '}
-                          {courses?.find((c) => c.id === lockedVideoTarget.targetCourseId)?.titleSinhala ||
-                            courses?.find((c) => c.id === lockedVideoTarget.targetCourseId)?.title ||
+                          {courses?.find((c) => c && c.id === lockedVideoTarget.targetCourseId)?.titleSinhala ||
+                            courses?.find((c) => c && c.id === lockedVideoTarget.targetCourseId)?.title ||
                             lockedVideoTarget.targetCourseId}
                         </span>
                       </span>

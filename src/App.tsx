@@ -46,6 +46,90 @@ const CourseSyllabusModal = React.lazy(() =>
   import('./components/Syllabus/CourseSyllabusModal').then((m) => ({ default: m.CourseSyllabusModal }))
 );
 
+interface ErrorBoundaryProps {
+  children: React.ReactNode;
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+}
+
+export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error('App ErrorBoundary caught runtime exception:', error, errorInfo);
+  }
+
+  handleReload = () => {
+    try {
+      window.location.reload();
+    } catch (_) {
+      window.location.href = '/';
+    }
+  };
+
+  handleResetAndReload = () => {
+    try {
+      localStorage.clear();
+      sessionStorage.clear();
+      window.location.href = '/';
+    } catch (_) {
+      window.location.reload();
+    }
+  };
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen bg-[#0c090a] text-[#f4efe6] flex items-center justify-center p-4 sm:p-6 select-none font-sans">
+          <div className="max-w-md w-full p-6 sm:p-8 rounded-lg bg-gradient-to-b from-[#1c1214] via-[#160e10] to-[#120d0f] border-2 border-[#dfb56c] shadow-2xl text-center space-y-5">
+            <div className="w-14 h-14 rounded-full bg-[#540d18] border-2 border-[#dfb56c] mx-auto flex items-center justify-center shadow-lg text-[#dfb56c] text-2xl font-bold">
+              ✦
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-xl font-editorial font-bold text-[#f7e2a9]">
+                Ceylon Style Studio
+              </h2>
+              <p className="text-xs text-[#d5cfc4] font-sinhala leading-relaxed">
+                වෙබ් පිටුව පූරණය කිරීමේදී දෝෂයක් හඳුනාගන්නා ලදී. කරුණාකර පහත බොත්තම ඔබා පිටුව නැවත Load කරන්න.
+              </p>
+              <p className="text-[11px] text-[#a89f91] font-mono break-words bg-black/40 p-2 rounded border border-white/5">
+                {this.state.error?.message || 'A temporary runtime error was handled safely.'}
+              </p>
+            </div>
+            <div className="flex flex-col gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={this.handleReload}
+                className="w-full py-2.5 px-4 rounded bg-gradient-to-r from-[#dfb56c] to-[#c99a45] text-black font-bold text-xs uppercase tracking-wider shadow-lg hover:brightness-110 transition-all cursor-pointer"
+              >
+                පිටුව නැවත Load කරන්න (Reload Page)
+              </button>
+              <button
+                type="button"
+                onClick={this.handleResetAndReload}
+                className="w-full py-2 px-4 rounded bg-[#540d18]/60 hover:bg-[#540d18] text-[#f7e2a9] border border-[#dfb56c]/30 text-[11px] font-mono transition-all cursor-pointer"
+              >
+                Clear Cache &amp; Fresh Reload
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 interface MainAppContentProps {
   onOpenAdmin: () => void;
   onOpenStudentLogin: () => void;
@@ -369,115 +453,117 @@ export default function App() {
   };
 
   return (
-    <AuthProvider>
-      <DataProvider>
-        <ThemeProvider>
-          <LanguageProvider>
-            {activeCampaignSlug ? (
-              <FBCampaignLandingPage
-                campaignSlug={activeCampaignSlug}
-                onBackToMain={() => {
-                  setActiveCampaignSlug(null);
-                  try {
-                    const cleanUrl =
-                      window.location.pathname.startsWith('/promo/') ||
-                      window.location.pathname.startsWith('/campaign/') ||
-                      window.location.pathname.startsWith('/fb/')
-                        ? '/'
-                        : window.location.pathname;
-                    window.history.pushState(null, '', cleanUrl);
-                    window.location.hash = '';
-                  } catch (_) {}
-                }}
-              />
-            ) : activeCourseSlug ? (
-              <CourseDetailPage
-                courseSlug={activeCourseSlug}
-                onBack={() => {
-                  setActiveCourseSlug(null);
-                  try {
-                    const cleanUrl = window.location.pathname.startsWith('/course/') ? '/' : window.location.pathname;
-                    window.history.pushState(null, '', cleanUrl);
-                  } catch (_) {}
-                }}
-                onOpenRegisterWithCourse={(slug) => {
-                  setActiveCourseSlug(null);
-                  try {
-                    window.location.hash = 'register';
-                  } catch (_) {}
-                  setTimeout(() => {
+    <ErrorBoundary>
+      <AuthProvider>
+        <DataProvider>
+          <ThemeProvider>
+            <LanguageProvider>
+              {activeCampaignSlug ? (
+                <FBCampaignLandingPage
+                  campaignSlug={activeCampaignSlug}
+                  onBackToMain={() => {
+                    setActiveCampaignSlug(null);
+                    try {
+                      const cleanUrl =
+                        window.location.pathname.startsWith('/promo/') ||
+                        window.location.pathname.startsWith('/campaign/') ||
+                        window.location.pathname.startsWith('/fb/')
+                          ? '/'
+                          : window.location.pathname;
+                      window.history.pushState(null, '', cleanUrl);
+                      window.location.hash = '';
+                    } catch (_) {}
+                  }}
+                />
+              ) : activeCourseSlug ? (
+                <CourseDetailPage
+                  courseSlug={activeCourseSlug}
+                  onBack={() => {
+                    setActiveCourseSlug(null);
+                    try {
+                      const cleanUrl = window.location.pathname.startsWith('/course/') ? '/' : window.location.pathname;
+                      window.history.pushState(null, '', cleanUrl);
+                    } catch (_) {}
+                  }}
+                  onOpenRegisterWithCourse={(slug) => {
+                    setActiveCourseSlug(null);
+                    try {
+                      window.location.hash = 'register';
+                    } catch (_) {}
+                    setTimeout(() => {
+                      const el = document.getElementById('register');
+                      if (el) el.scrollIntoView({ behavior: 'smooth' });
+                    }, 300);
+                  }}
+                />
+              ) : (
+                <MainAppContent
+                  onOpenAdmin={() => setAdminOpen(true)}
+                  onOpenStudentLogin={() => setStudentLoginOpen(true)}
+                  onOpenStudentDashboard={() => setStudentDashboardOpen(true)}
+                  onOpenMentor={() => setMentorOpen(true)}
+                  onOpenSyllabus={handleOpenSyllabus}
+                  onOpenCoursePage={(slug) => {
+                    setActiveCourseSlug(slug);
+                    try {
+                      window.location.hash = `course/${slug}`;
+                    } catch (_) {}
+                  }}
+                />
+              )}
+
+              <React.Suspense
+                fallback={
+                  <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex flex-col items-center justify-center p-4">
+                    <div className="w-10 h-10 border-2 border-[#dfb56c] border-t-transparent rounded-full animate-spin mb-3" />
+                    <span className="text-xs font-mono text-[#f7e2a9] uppercase tracking-widest">
+                      Loading Studio Portal...
+                    </span>
+                  </div>
+                }
+              >
+                {/* AI Fashion Mentor Modal */}
+                <FashionMentorModal
+                  isOpen={mentorOpen}
+                  onClose={() => setMentorOpen(false)}
+                />
+
+                {/* Course Syllabus & Comprehensive Curriculum Modal Form */}
+                <CourseSyllabusModal
+                  isOpen={syllabusOpen}
+                  onClose={() => setSyllabusOpen(false)}
+                  initialCourseId={syllabusCourseId}
+                  onOpenRegister={() => {
+                    setSyllabusOpen(false);
                     const el = document.getElementById('register');
                     if (el) el.scrollIntoView({ behavior: 'smooth' });
-                  }, 300);
-                }}
-              />
-            ) : (
-              <MainAppContent
-                onOpenAdmin={() => setAdminOpen(true)}
-                onOpenStudentLogin={() => setStudentLoginOpen(true)}
-                onOpenStudentDashboard={() => setStudentDashboardOpen(true)}
-                onOpenMentor={() => setMentorOpen(true)}
-                onOpenSyllabus={handleOpenSyllabus}
-                onOpenCoursePage={(slug) => {
-                  setActiveCourseSlug(slug);
-                  try {
-                    window.location.hash = `course/${slug}`;
-                  } catch (_) {}
-                }}
-              />
-            )}
+                  }}
+                />
 
-            <React.Suspense
-              fallback={
-                <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex flex-col items-center justify-center p-4">
-                  <div className="w-10 h-10 border-2 border-[#dfb56c] border-t-transparent rounded-full animate-spin mb-3" />
-                  <span className="text-xs font-mono text-[#f7e2a9] uppercase tracking-widest">
-                    Loading Studio Portal...
-                  </span>
-                </div>
-              }
-            >
-              {/* AI Fashion Mentor Modal */}
-              <FashionMentorModal
-                isOpen={mentorOpen}
-                onClose={() => setMentorOpen(false)}
-              />
+                {/* Admin Management Suite */}
+                <AdminModal isOpen={adminOpen} onClose={handleCloseAdmin} initialTab={adminInitialTab} />
 
-              {/* Course Syllabus & Comprehensive Curriculum Modal Form */}
-              <CourseSyllabusModal
-                isOpen={syllabusOpen}
-                onClose={() => setSyllabusOpen(false)}
-                initialCourseId={syllabusCourseId}
+                {/* Student LMS Dashboard & Payment Portal */}
+                <StudentDashboardModal
+                  isOpen={studentDashboardOpen}
+                  onClose={() => setStudentDashboardOpen(false)}
+                />
+              </React.Suspense>
+
+              {/* Student Login Modal */}
+              <StudentLoginModal
+                isOpen={studentLoginOpen}
+                onClose={() => setStudentLoginOpen(false)}
+                onOpenDashboard={() => setStudentDashboardOpen(true)}
                 onOpenRegister={() => {
-                  setSyllabusOpen(false);
                   const el = document.getElementById('register');
                   if (el) el.scrollIntoView({ behavior: 'smooth' });
                 }}
               />
-
-              {/* Admin Management Suite */}
-              <AdminModal isOpen={adminOpen} onClose={handleCloseAdmin} initialTab={adminInitialTab} />
-
-              {/* Student LMS Dashboard & Payment Portal */}
-              <StudentDashboardModal
-                isOpen={studentDashboardOpen}
-                onClose={() => setStudentDashboardOpen(false)}
-              />
-            </React.Suspense>
-
-            {/* Student Login Modal */}
-            <StudentLoginModal
-              isOpen={studentLoginOpen}
-              onClose={() => setStudentLoginOpen(false)}
-              onOpenDashboard={() => setStudentDashboardOpen(true)}
-              onOpenRegister={() => {
-                const el = document.getElementById('register');
-                if (el) el.scrollIntoView({ behavior: 'smooth' });
-              }}
-            />
-          </LanguageProvider>
-        </ThemeProvider>
-      </DataProvider>
-    </AuthProvider>
+            </LanguageProvider>
+          </ThemeProvider>
+        </DataProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }

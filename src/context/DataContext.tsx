@@ -2657,6 +2657,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isPublished: video.isPublished !== undefined ? video.isPublished : true,
       order: video.order ?? videos.length + 1,
       createdAt: video.createdAt || new Date().toISOString().split('T')[0],
+      accessLevel: video.accessLevel || 'PAID',
+      targetCourseId: video.targetCourseId || 'ALL',
     };
 
     const nextVideos = [...videos.filter((v) => v.id !== id), item].sort((a, b) => a.order - b.order);

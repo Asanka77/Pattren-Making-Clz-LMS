@@ -2068,6 +2068,8 @@ export const DEFAULT_YOUTUBE_VIDEOS: YouTubeVideoItem[] = [
     isPublished: true,
     order: 1,
     createdAt: "2026-03-01",
+    accessLevel: "FREE",
+    targetCourseId: "ALL",
   },
   {
     id: "yt-02",

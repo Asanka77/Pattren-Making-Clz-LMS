@@ -961,13 +961,13 @@ export const PatternDummyStudio: React.FC = () => {
   const filteredGlossary = useMemo(() => {
     return PATTERN_TERMINOLOGY_DATABASE.filter((term) => {
       const matchesCategory = glossaryCategory === 'all' || term.category === glossaryCategory;
-      const query = glossarySearch.toLowerCase().trim();
+      const query = (glossarySearch || '').toLowerCase().trim();
       if (!query) return matchesCategory;
       const matchesSearch =
-        term.termEn.toLowerCase().includes(query) ||
-        term.termSi.toLowerCase().includes(query) ||
-        term.meaningEn.toLowerCase().includes(query) ||
-        term.meaningSi.toLowerCase().includes(query);
+        (term.termEn || '').toLowerCase().includes(query) ||
+        (term.termSi || '').toLowerCase().includes(query) ||
+        (term.meaningEn || '').toLowerCase().includes(query) ||
+        (term.meaningSi || '').toLowerCase().includes(query);
       return matchesCategory && matchesSearch;
     });
   }, [glossaryCategory, glossarySearch]);

@@ -281,6 +281,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose, initial
   const [editingWhyFeature, setEditingWhyFeature] = useState<WhyFeatureItem | null>(null);
   const [editingVideo, setEditingVideo] = useState<YouTubeVideoItem | null>(null);
   const [videoCategoryFilter, setVideoCategoryFilter] = useState<string>('ALL');
+  const [videoAccessFilter, setVideoAccessFilter] = useState<'ALL' | 'FREE' | 'PAID'>('ALL');
+  const [videoCourseFilter, setVideoCourseFilter] = useState<string>('ALL');
   const [pinterestSettingsSaved, setPinterestSettingsSaved] = useState(false);
   const [editingGalleryItem, setEditingGalleryItem] = useState<Partial<GalleryImageItem> | null>(null);
 
@@ -358,6 +360,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose, initial
     duration: '12:30',
     thumbnailUrl: '',
     badgeTextSinhala: siteSettings.featuredMasterclassBadgeSinhala || 'විශේෂාංගගත සජීවී වැඩමුළුව (FEATURED ATELIER MASTERCLASS)',
+    accessLevel: 'FREE' as 'FREE' | 'PAID',
+    targetCourseId: 'ALL',
   });
   const [isFeaturedFormDirty, setIsFeaturedFormDirty] = useState(false);
   const [isSavingFeaturedVideo, setIsSavingFeaturedVideo] = useState(false);
@@ -377,6 +381,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose, initial
         duration: currentFeaturedVideo.duration || '12:30',
         thumbnailUrl: currentFeaturedVideo.thumbnailUrl || '',
         badgeTextSinhala: siteSettings.featuredMasterclassBadgeSinhala || 'විශේෂාංගගත සජීවී වැඩමුළුව (FEATURED ATELIER MASTERCLASS)',
+        accessLevel: (currentFeaturedVideo.accessLevel || 'FREE') as 'FREE' | 'PAID',
+        targetCourseId: currentFeaturedVideo.targetCourseId || 'ALL',
       });
     }
   }, [currentFeaturedVideo, isFeaturedFormDirty, siteSettings.featuredMasterclassBadgeSinhala]);
@@ -399,6 +405,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose, initial
         thumbnailUrl: featuredVideoForm.thumbnailUrl || '',
         isFeatured: true,
         isPublished: true,
+        accessLevel: featuredVideoForm.accessLevel || 'FREE',
+        targetCourseId: featuredVideoForm.targetCourseId || 'ALL',
       };
 
       await saveYouTubeVideo(videoToSave);
@@ -462,6 +470,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose, initial
         duration: chosen.duration || '12:30',
         thumbnailUrl: chosen.thumbnailUrl || '',
         badgeTextSinhala: siteSettings.featuredMasterclassBadgeSinhala || 'විශේෂාංගගත සජීවී වැඩමුළුව (FEATURED ATELIER MASTERCLASS)',
+        accessLevel: (chosen.accessLevel || 'FREE') as 'FREE' | 'PAID',
+        targetCourseId: chosen.targetCourseId || 'ALL',
       });
       setIsFeaturedFormDirty(false);
       setFeaturedVideoSaveSuccess(`"${chosen.titleSinhala || chosen.title}" විශේෂාංගගත වීඩියෝව (Featured Masterclass) ලෙස සාර්ථකව පත් කරන ලදී!`);
@@ -1651,10 +1661,10 @@ We look forward to learning and creating with you.`;
               if (lessonCourseFilter !== 'ALL' && l.courseId !== lessonCourseFilter) return false;
               if (lessonMonthFilter !== 0 && (l.month ?? 1) !== lessonMonthFilter) return false;
               if (lessonSearchTerm.trim()) {
-                const q = lessonSearchTerm.toLowerCase();
-                const matchTitle = l.title?.toLowerCase().includes(q) || l.titleSinhala?.toLowerCase().includes(q);
-                const matchDesc = l.description?.toLowerCase().includes(q) || l.descriptionSinhala?.toLowerCase().includes(q);
-                const matchMod = l.moduleTitle?.toLowerCase().includes(q);
+                const q = (lessonSearchTerm || '').toLowerCase();
+                const matchTitle = (l.title || '').toLowerCase().includes(q) || (l.titleSinhala || '').toLowerCase().includes(q);
+                const matchDesc = (l.description || '').toLowerCase().includes(q) || (l.descriptionSinhala || '').toLowerCase().includes(q);
+                const matchMod = (l.moduleTitle || '').toLowerCase().includes(q);
                 if (!matchTitle && !matchDesc && !matchMod) return false;
               }
               return true;
@@ -5236,6 +5246,52 @@ We look forward to learning and creating with you.`;
                         placeholder="විශේෂාංගගත සජීවී වැඩමුළුව (FEATURED ATELIER MASTERCLASS)"
                         className="w-full p-2.5 bg-[#0c090a] border border-[#dfb56c]/30 rounded text-[#f7e2a9] font-sinhala focus:outline-none focus:border-[#dfb56c]"
                       />
+                    </div>
+
+                    <div>
+                      <label className="block text-[#dfb56c] font-bold mb-1 font-sinhala flex items-center gap-1.5">
+                        <Lock className="w-3.5 h-3.5 text-[#dfb56c]" />
+                        <span>Featured Video ප්‍රවේශ මට්ටම (Access Level)</span>
+                      </label>
+                      <select
+                        value={featuredVideoForm.accessLevel || 'FREE'}
+                        onChange={(e) => {
+                          setIsFeaturedFormDirty(true);
+                          setFeaturedVideoForm({
+                            ...featuredVideoForm,
+                            accessLevel: e.target.value as 'FREE' | 'PAID',
+                          });
+                        }}
+                        className="w-full p-2.5 bg-[#0c090a] border border-[#dfb56c]/50 rounded text-[#f7e2a9] font-sinhala font-bold text-xs focus:outline-none focus:border-[#dfb56c]"
+                      >
+                        <option value="FREE">🔓 නොමිලේ නැරඹිය හැකි (Free Preview - Open to All)</option>
+                        <option value="PAID">🔒 ගාස්තු ගෙවූ සිසුන්ට පමණි (Paid Students Only - Advanced Lock)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[#dfb56c] font-bold mb-1 font-sinhala flex items-center gap-1.5">
+                        <Award className="w-3.5 h-3.5 text-[#dfb56c]" />
+                        <span>අදාළ පාඨමාලාව (Assigned Course Access)</span>
+                      </label>
+                      <select
+                        value={featuredVideoForm.targetCourseId || 'ALL'}
+                        onChange={(e) => {
+                          setIsFeaturedFormDirty(true);
+                          setFeaturedVideoForm({
+                            ...featuredVideoForm,
+                            targetCourseId: e.target.value,
+                          });
+                        }}
+                        className="w-full p-2.5 bg-[#0c090a] border border-[#dfb56c]/50 rounded text-[#f7e2a9] font-sinhala text-xs focus:outline-none focus:border-[#dfb56c]"
+                      >
+                        <option value="ALL">🌟 සියලුම පාඨමාලා සිසුන්ට (All Courses Access)</option>
+                        {courses.map((course) => (
+                          <option key={course.id} value={course.id}>
+                            {course.titleSinhala || course.title} ({course.id})
+                          </option>
+                        ))}
+                      </select>
                     </div>
                   </div>
                 </div>

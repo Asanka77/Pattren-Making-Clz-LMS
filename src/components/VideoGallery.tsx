@@ -396,8 +396,8 @@ export const VideoGallery: React.FC<VideoGalleryProps> = ({
     ) {
       return true;
     }
-    const matched = registrations.find(
-      (r) => r.id === studentUser.id || (r.regNumber && r.regNumber === studentUser.regNumber)
+    const matched = (registrations || []).find(
+      (r) => r && (r.id === studentUser.id || (r.regNumber && r.regNumber === studentUser.regNumber))
     );
     if (matched) {
       return (
@@ -498,16 +498,18 @@ export const VideoGallery: React.FC<VideoGalleryProps> = ({
   ];
 
   const publishedVideos = useMemo(() => {
-    return videos.filter((v) => v.isPublished !== false);
+    return (videos || []).filter((v) => v && v.isPublished !== false);
   }, [videos]);
 
-  const featuredVideo = publishedVideos.find((v) => v.isFeatured) || publishedVideos[0];
+  const featuredVideo = (publishedVideos || []).find((v) => v && v.isFeatured) || (publishedVideos || [])[0] || null;
 
   const filteredVideos = useMemo(() => {
-    if (selectedCategory === 'ALL') return publishedVideos;
-    return publishedVideos.filter((v) => {
-      if (v.category === selectedCategory) return true;
-      if (selectedCategory === 'AI' && (v.category.includes('AI') || v.category.includes('Tech'))) return true;
+    if (selectedCategory === 'ALL') return publishedVideos || [];
+    return (publishedVideos || []).filter((v) => {
+      if (!v) return false;
+      const cat = (v.category || '').toString();
+      if (cat === selectedCategory) return true;
+      if (selectedCategory === 'AI' && (cat.includes('AI') || cat.includes('Tech'))) return true;
       return false;
     });
   }, [selectedCategory, publishedVideos]);
